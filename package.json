@@ -1,0 +1,17 @@
+{
+    "name": "gps-tracking-app",
+    "version": "1.0.0",
+    "description": "Full-stack GPS tracking application with backend and frontend",
+    "private": true,
+    "scripts": {
+        "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+        "dev": "concurrently \"cd backend && python -m uvicorn main:app --reload --port 8000\" \"cd frontend && npm run dev\"",
+        "start": "concurrently \"cd backend && npm start\" \"cd frontend && npm run dev\""
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2"
+    },
+    "dependencies": {
+        "react-router-dom": "^7.13.2"
+    }
+}
