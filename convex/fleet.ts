@@ -1,6 +1,19 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
+// convex/fleet.ts
+export const getFleetStatus = query({
+    args: {},
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) return [];
+
+        // TEMPORARY: Return everything so you can see your design
+        // We will re-enable the role check once we fix the Users table
+        return await ctx.db.query("vehicles").collect();
+    },
+});
+/*
 export const getFleetStatus = query({
     args: {},
     handler: async (ctx) => {
@@ -35,7 +48,7 @@ export const getFleetStatus = query({
         return assigned;
     },
 });
-
+*/
 export const seedMockData = mutation({
     args: {},
     handler: async (ctx) => {
@@ -54,3 +67,6 @@ export const seedMockData = mutation({
         return "Mock data seeded successfully!";
     }
 });
+
+
+

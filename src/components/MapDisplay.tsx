@@ -85,10 +85,11 @@ const createJeepIcon = () => {
 };
 
 interface MapDisplayProps {
+    fleetData?: any[];
     onJeepClick?: () => void;
 }
 
-const MapDisplay: React.FC<MapDisplayProps> = ({ onJeepClick }) => {
+const MapDisplay: React.FC<MapDisplayProps> = ({ fleetData, onJeepClick }) => {
     // Default center: Bocaue / Dr. Yanga's Colleges, Inc. area
     const defaultCenter: [number, number] = [14.7937, 120.9234];
     const defaultZoom = 15;
@@ -107,8 +108,23 @@ const MapDisplay: React.FC<MapDisplayProps> = ({ onJeepClick }) => {
         },
     ];
 
-    // Mock E-Jeep location
-    const jeepPosition: [number, number] = [14.7920, 120.9220];
+    // Use fleetData if available, otherwise fall back to mock data
+    const vehicles = fleetData && fleetData.length > 0
+        ? fleetData.map(vehicle => ({
+            id: vehicle.deviceId || vehicle._id,
+            position: [
+                vehicle.latitude ?? vehicle.lat ?? defaultCenter[0],
+                vehicle.longitude ?? vehicle.lng ?? defaultCenter[1]
+            ] as [number, number],
+            status: vehicle.status,
+            passengerCount: vehicle.passengerCount ?? 0,
+        }))
+        : [{
+            id: 'E-JEEP #12',
+            position: [14.7920, 120.9220] as [number, number],
+            status: 'Online',
+            passengerCount: 0,
+        }];
 
     return (
         <div className="relative flex-1 w-full h-full">
@@ -153,26 +169,33 @@ const MapDisplay: React.FC<MapDisplayProps> = ({ onJeepClick }) => {
                     </MarkerAny>
                 ))}
 
-                {/* E-Jeep marker */}
-                <MarkerAny
-                    position={jeepPosition}
-                    icon={createJeepIcon()}
-                    eventHandlers={{
-                        click: () => {
-                            if (onJeepClick) {
-                                onJeepClick();
-                            }
-                        },
-                    }}
-                >
-                    <Popup>
-                        <div className="text-center p-2">
-                            <strong className="text-gray-900">E-JEEP #12</strong>
-                            <br />
-                            <span className="text-sm text-gray-600">Click for details</span>
-                        </div>
-                    </Popup>
-                </MarkerAny>
+                {/* Vehicle markers from fleetData */}
+                {vehicles.map((vehicle) => (
+                    <MarkerAny
+                        key={vehicle.id}
+                        position={vehicle.position}
+                        icon={createJeepIcon()}
+                        eventHandlers={{
+                            click: () => {
+                                if (onJeepClick) {
+                                    onJeepClick();
+                                }
+                            },
+                        }}
+                    >
+                        <Popup>
+                            <div className="text-center p-2">
+                                <strong className="text-gray-900">{vehicle.id}</strong>
+                                <br />
+                                <span className="text-sm text-gray-600">
+                                    {vehicle.status} • {vehicle.passengerCount} passengers
+                                </span>
+                                <br />
+                                <span className="text-sm text-gray-600">Click for details</span>
+                            </div>
+                        </Popup>
+                    </MarkerAny>
+                ))}
             </MapContainerAny>
         </div>
     );
