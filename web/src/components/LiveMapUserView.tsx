@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { useState, useEffect, useRef } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { Layers, X } from "lucide-react";
+import { Layers, X, Navigation } from "lucide-react";
 import { VehicleBottomSheet } from "./VehicleBottomSheet";
 
 // Type assertions for react-leaflet v5 compatibility
@@ -47,6 +47,97 @@ const createJeepIcon = () => {
     });
 };
 
+/**
+ * Component to render user location marker and handle auto-centering
+ */
+function UserLocationMarker({
+    userLocation,
+    onMapReady,
+}: {
+    userLocation: [number, number] | null;
+    onMapReady: () => void;
+}) {
+    const map = useMap();
+    const hasAutocentered = useRef(false);
+
+    useEffect(() => {
+        if (userLocation && !hasAutocentered.current) {
+            // Auto-center on first location fetch
+            map.flyTo(userLocation, 16, { duration: 1.5 });
+            hasAutocentered.current = true;
+            onMapReady();
+        }
+    }, [userLocation, map, onMapReady]);
+
+    if (!userLocation) {
+        return null;
+    }
+
+    return (
+        <CircleMarker
+            center={userLocation}
+            radius={8}
+            fill={true}
+            fillColor="#1e40af"
+            fillOpacity={0.8}
+            color="#ffffff"
+            weight={2}
+            opacity={1}
+            className="user-location-marker"
+        >
+            <Popup>
+                <div className="text-center p-2">
+                    <strong className="text-gray-900">Your Location</strong>
+                    <br />
+                    <span className="text-xs text-gray-600">
+                        {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
+                    </span>
+                </div>
+            </Popup>
+        </CircleMarker>
+    );
+}
+
+/**
+ * Floating "Locate Me" button component
+ */
+function LocateMeButton({
+    userLocation,
+}: {
+    userLocation: [number, number] | null;
+}) {
+    const map = useMap();
+    const [isAnimating, setIsAnimating] = useState(false);
+
+    const handleLocateMe = () => {
+        if (!userLocation) {
+            console.warn("User location not available yet");
+            return;
+        }
+
+        setIsAnimating(true);
+        map.flyTo(userLocation, 16, { duration: 1 });
+        setTimeout(() => setIsAnimating(false), 1000);
+    };
+
+    return (
+        <button
+            onClick={handleLocateMe}
+            disabled={!userLocation}
+            className={`absolute bottom-24 right-4 z-[1000] flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all ${userLocation
+                    ? "bg-blue-500 hover:bg-blue-600"
+                    : "bg-gray-300 cursor-not-allowed"
+                } ${isAnimating ? "animate-pulse" : ""}`}
+            title="Center map on your location"
+        >
+            <Navigation
+                className={`h-5 w-5 text-white ${isAnimating ? "animate-spin" : ""
+                    }`}
+            />
+        </button>
+    );
+}
+
 interface LiveMapUserViewProps {
     fleetData: any[];
 }
@@ -54,10 +145,65 @@ interface LiveMapUserViewProps {
 export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
     const [selectedVehicle, setSelectedVehicle] = useState<any | null>(null);
     const [showBottomSheet, setShowBottomSheet] = useState(false);
+    const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+    const watchIdRef = useRef<number | null>(null);
+    const [mapReady, setMapReady] = useState(false);
 
     // Default center: Bocaue / Dr. Yanga's Colleges, Inc. area
     const defaultCenter: [number, number] = [14.7937, 120.9234];
     const defaultZoom = 15;
+
+    /**
+     * Initialize geolocation tracking on component mount
+     * Continuously watches user position with watchPosition
+     */
+    useEffect(() => {
+        if (!navigator.geolocation) {
+            console.warn("Geolocation is not supported by this browser");
+            return;
+        }
+
+        const successCallback = (position: GeolocationPosition) => {
+            const { latitude, longitude } = position.coords;
+            setUserLocation([latitude, longitude]);
+        };
+
+        const errorCallback = (error: GeolocationPositionError) => {
+            switch (error.code) {
+                case error.PERMISSION_DENIED:
+                    console.warn(
+                        "Geolocation permission denied. Please enable location services to use this feature."
+                    );
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    console.warn("Location information is unavailable");
+                    break;
+                case error.TIMEOUT:
+                    console.warn("Geolocation request timed out");
+                    break;
+                default:
+                    console.warn("An unknown geolocation error occurred");
+            }
+        };
+
+        // Start watching position: updates continuously
+        watchIdRef.current = navigator.geolocation.watchPosition(
+            successCallback,
+            errorCallback,
+            {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 10000,
+            }
+        );
+
+        // Cleanup: stop watching position on unmount
+        return () => {
+            if (watchIdRef.current !== null) {
+                navigator.geolocation.clearWatch(watchIdRef.current);
+            }
+        };
+    }, []);
 
     // Process fleetData to create vehicle markers
     const vehicles =
@@ -110,6 +256,12 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
 
+                {/* User Location Marker */}
+                <UserLocationMarker
+                    userLocation={userLocation}
+                    onMapReady={() => setMapReady(true)}
+                />
+
                 {/* Vehicle markers from fleetData */}
                 {vehicles.map((vehicle) => (
                     <MarkerAny
@@ -134,6 +286,9 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
                         </Popup>
                     </MarkerAny>
                 ))}
+
+                {/* Locate Me Button (inside MapContainer to access useMap) */}
+                <LocateMeButton userLocation={userLocation} />
             </MapContainerAny>
 
             {/* Floating Logo at Top Center */}

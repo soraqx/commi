@@ -1,5 +1,8 @@
 import { Clock, X, Check } from "lucide-react";
 
+/** Maximum passenger capacity per vehicle */
+const MAX_CAPACITY = 30;
+
 interface VehicleBottomSheetProps {
     vehicle: {
         id: string;
@@ -12,16 +15,40 @@ interface VehicleBottomSheetProps {
     onClose: () => void;
 }
 
+/**
+ * Determines badge color and styling based on passenger count
+ * @param passengerCount - Current number of passengers
+ * @returns Tailwind CSS class string for badge styling
+ */
+function getCapacityBadgeStyle(passengerCount: number): string {
+    if (passengerCount < 15) {
+        return "bg-emerald-100 text-emerald-700"; // Light Green
+    }
+    if (passengerCount < 30) {
+        return "bg-amber-100 text-amber-700"; // Yellow/Orange
+    }
+    return "bg-red-100 text-red-700"; // Red
+}
+
+/**
+ * Determines badge text based on passenger count
+ * @param passengerCount - Current number of passengers
+ * @returns Badge text label
+ */
+function getCapacityBadgeText(passengerCount: number): string {
+    if (passengerCount < 15) {
+        return "Available";
+    }
+    if (passengerCount < 30) {
+        return "Filling Up";
+    }
+    return "Full";
+}
+
 export function VehicleBottomSheet({ vehicle, onClose }: VehicleBottomSheetProps) {
-    const getCapacityColor = (capacity: string) => {
-        if (capacity.toLowerCase().includes("not full")) {
-            return "bg-green-100 text-green-700";
-        }
-        if (capacity.toLowerCase().includes("full")) {
-            return "bg-red-100 text-red-700";
-        }
-        return "bg-gray-100 text-gray-700";
-    };
+    // Clamp passenger count to not exceed MAX_CAPACITY for display
+    const displayPassengerCount = Math.min(vehicle.passengerCount, MAX_CAPACITY);
+    const capacityStatus = getCapacityBadgeText(vehicle.passengerCount);
 
     return (
         <>
@@ -59,12 +86,14 @@ export function VehicleBottomSheet({ vehicle, onClose }: VehicleBottomSheetProps
                         {/* Capacity Badge */}
                         <div className="mb-6">
                             <span
-                                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium ${getCapacityColor(
-                                    vehicle.capacity
+                                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${getCapacityBadgeStyle(
+                                    vehicle.passengerCount
                                 )}`}
+                                role="status"
+                                aria-label={`Vehicle capacity: ${displayPassengerCount} of ${MAX_CAPACITY} passengers. Status: ${capacityStatus}`}
                             >
-                                <Check className="h-3.5 w-3.5" />
-                                {vehicle.capacity}
+                                <Check className="h-4 w-4" />
+                                {capacityStatus}
                             </span>
                         </div>
 
@@ -77,9 +106,9 @@ export function VehicleBottomSheet({ vehicle, onClose }: VehicleBottomSheetProps
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-sm text-gray-500">Passengers</span>
+                                <span className="text-sm text-gray-500">Capacity</span>
                                 <span className="text-sm font-medium text-gray-900">
-                                    {vehicle.passengerCount}
+                                    {displayPassengerCount} / {MAX_CAPACITY} Passengers
                                 </span>
                             </div>
                         </div>
@@ -116,12 +145,14 @@ export function VehicleBottomSheet({ vehicle, onClose }: VehicleBottomSheetProps
                         {/* Capacity Badge */}
                         <div className="mb-6">
                             <span
-                                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium ${getCapacityColor(
-                                    vehicle.capacity
+                                className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${getCapacityBadgeStyle(
+                                    vehicle.passengerCount
                                 )}`}
+                                role="status"
+                                aria-label={`Vehicle capacity: ${displayPassengerCount} of ${MAX_CAPACITY} passengers. Status: ${capacityStatus}`}
                             >
-                                <Check className="h-3.5 w-3.5" />
-                                {vehicle.capacity}
+                                <Check className="h-4 w-4" />
+                                {capacityStatus}
                             </span>
                         </div>
 
@@ -134,9 +165,9 @@ export function VehicleBottomSheet({ vehicle, onClose }: VehicleBottomSheetProps
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">
-                                <span className="text-sm text-gray-500">Passengers</span>
+                                <span className="text-sm text-gray-500">Capacity</span>
                                 <span className="text-sm font-medium text-gray-900">
-                                    {vehicle.passengerCount}
+                                    {displayPassengerCount} / {MAX_CAPACITY} Passengers
                                 </span>
                             </div>
                         </div>

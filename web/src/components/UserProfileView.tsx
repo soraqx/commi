@@ -1,8 +1,32 @@
 import { useUser, SignOutButton } from "@clerk/clerk-react";
 import { Edit, ChevronRight, LogOut } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export function UserProfileView() {
     const { user } = useUser();
+    const [vibrateEnabled, setVibrateEnabled] = useState<boolean>(false);
+
+    // Initialize vibrate state from localStorage on mount
+    useEffect(() => {
+        const saved = localStorage.getItem("vibrateAlerts");
+        if (saved !== null) {
+            setVibrateEnabled(JSON.parse(saved));
+        }
+    }, []);
+
+    /**
+     * Toggles vibration alerts on/off
+     * Saves preference to localStorage and provides haptic feedback when enabled
+     */
+    const handleToggleVibrate = (enabled: boolean) => {
+        setVibrateEnabled(enabled);
+        localStorage.setItem("vibrateAlerts", JSON.stringify(enabled));
+
+        // Provide haptic feedback when toggled ON (if device supports it)
+        if (enabled && navigator.vibrate) {
+            navigator.vibrate([200, 100, 200]);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gray-100 px-4 py-8 md:px-8">
@@ -78,7 +102,32 @@ export function UserProfileView() {
                         </label>
                     </div>
 
-                    <div className="flex items-center justify-between p-4">
+                    <div className="flex items-center justify-between border-b border-gray-100 p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100">
+                                <span className="text-lg">📳</span>
+                            </div>
+                            <div>
+                                <h3 className="font-medium text-gray-900">
+                                    Vibration Alerts
+                                </h3>
+                                <p className="text-sm text-gray-500">
+                                    Haptic feedback on notifications
+                                </p>
+                            </div>
+                        </div>
+                        <label className="relative inline-flex cursor-pointer items-center">
+                            <input
+                                type="checkbox"
+                                checked={vibrateEnabled}
+                                onChange={(e) => handleToggleVibrate(e.target.checked)}
+                                className="peer sr-only"
+                            />
+                            <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-500 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300" />
+                        </label>
+                    </div>
+
+                    <div className="flex items-center justify-between border-b border-gray-100 p-4">
                         <div className="flex items-center gap-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
                                 <span className="text-lg">🔒</span>
