@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useConvexAuth } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
+import { WelcomeScreen } from "./components/WelcomeScreen";
 import MapDisplay from "./components/MapDisplay";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { UserDashboard } from "./components/UserDashboard";
@@ -25,48 +26,9 @@ type TabKey = "overview" | "map" | "history" | "settings";
 
 export default function App() {
     return (
-        <main
-            className="min-h-screen"
-            style={{ backgroundColor: "var(--color-bg-primary)" }}
-        >
+        <main className="min-h-screen">
             <SignedOut>
-                <div className="flex min-h-screen flex-col items-center justify-center px-4">
-                    <div className="max-w-md text-center">
-                        <div className="mb-6">
-                            <Activity
-                                className="mx-auto mb-4 h-16 w-16"
-                                style={{ color: "var(--color-accent-primary)" }}
-                            />
-                            <h1
-                                className="mb-2 text-4xl font-bold"
-                                style={{ color: "var(--color-text-primary)" }}
-                            >
-                                Welcome to Chatcommiot
-                            </h1>
-                            <p
-                                className="text-lg"
-                                style={{ color: "var(--color-text-secondary)" }}
-                            >
-                                Passenger and Vehicle Tracker
-                            </p>
-                        </div>
-
-                        <p className="mb-8" style={{ color: "var(--color-text-muted)" }}>
-                            Please sign in to view the real-time fleet monitoring dashboard.
-                        </p>
-
-                        <SignInButton mode="modal">
-                            <button
-                                className="rounded-lg px-6 py-3 font-semibold text-white transition-all duration-200 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2"
-                                style={{
-                                    backgroundColor: "var(--color-accent-primary)",
-                                }}
-                            >
-                                Sign In to Dashboard
-                            </button>
-                        </SignInButton>
-                    </div>
-                </div>
+                <WelcomeScreen />
             </SignedOut>
 
             <SignedIn>
