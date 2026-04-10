@@ -8,6 +8,9 @@
         "strict": true
     },
     "include": [
-        "vite.config.js"
+        "./vite.config.js"
+    ],
+    "files": [
+        "./vite.config.js"
     ]
 }
