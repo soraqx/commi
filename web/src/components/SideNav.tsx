@@ -14,7 +14,7 @@ interface SideNavProps {
 }
 
 const SideNav: React.FC<SideNavProps> = ({
-    activeTab = 'map',
+    activeTab: _activeTab = 'map',
     onTabChange
 }) => {
     const navItems = [

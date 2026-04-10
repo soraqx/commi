@@ -20,10 +20,14 @@
         "noUnusedParameters": true,
         "noFallthroughCasesInSwitch": true,
         "allowSyntheticDefaultImports": true,
-        "esModuleInterop": true
+        "esModuleInterop": true,
+        "types": [
+            "leaflet"
+        ]
     },
     "include": [
-        "src"
+        "src",
+        "src/types"
     ],
     "references": [
         {

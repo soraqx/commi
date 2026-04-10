@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { Layers, X, Navigation } from "lucide-react";
+import { Layers, Navigation } from "lucide-react";
 import { VehicleBottomSheet } from "./VehicleBottomSheet";
 
 // Type assertions for react-leaflet v5 compatibility
@@ -125,8 +125,8 @@ function LocateMeButton({
             onClick={handleLocateMe}
             disabled={!userLocation}
             className={`absolute bottom-24 right-4 z-[1000] flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all ${userLocation
-                    ? "bg-blue-500 hover:bg-blue-600"
-                    : "bg-gray-300 cursor-not-allowed"
+                ? "bg-blue-500 hover:bg-blue-600"
+                : "bg-gray-300 cursor-not-allowed"
                 } ${isAnimating ? "animate-pulse" : ""}`}
             title="Center map on your location"
         >
@@ -147,7 +147,7 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
     const [showBottomSheet, setShowBottomSheet] = useState(false);
     const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
     const watchIdRef = useRef<number | null>(null);
-    const [mapReady, setMapReady] = useState(false);
+    const [_mapReady, setMapReady] = useState(false);
 
     // Default center: Bocaue / Dr. Yanga's Colleges, Inc. area
     const defaultCenter: [number, number] = [14.7937, 120.9234];
