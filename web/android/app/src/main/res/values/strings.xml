@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Chatcommiot</string>
+    <string name="title_activity_main">Chatcommiot</string>
+    <string name="package_name">com.chatcommiot.app</string>
+    <string name="custom_url_scheme">com.chatcommiot.app</string>
+</resources>
