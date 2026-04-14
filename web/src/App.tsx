@@ -1,8 +1,7 @@
-import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, UserButton, useUser } from "@clerk/clerk-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import {
-    Activity,
     Cpu,
     History,
     LayoutDashboard,
@@ -22,18 +21,42 @@ import { WelcomeScreen } from "./components/WelcomeScreen";
 import MapDisplay from "./components/MapDisplay";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { UserDashboard } from "./components/UserDashboard";
+import { App as CapacitorApp } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
+import { LocationProvider } from "./context/LocationContext";
 type TabKey = "overview" | "map" | "history" | "settings";
 
 export default function App() {
+    useEffect(() => {
+        const handleOAuthCallback = async () => {
+            const listener = await CapacitorApp.addListener("appUrlOpen", async (event: { url: string }) => {
+                if (event.url.includes("oauth-callback")) {
+                    await Browser.close();
+                    const url = new URL(event.url);
+                    const searchParams = url.search;
+                    window.location.assign(`/${searchParams}`);
+                }
+            });
+
+            return () => {
+                listener.remove();
+            };
+        };
+
+        handleOAuthCallback();
+    }, []);
+
     return (
         <main className="min-h-screen">
-            <SignedOut>
-                <WelcomeScreen />
-            </SignedOut>
+            <LocationProvider>
+                <SignedOut>
+                    <WelcomeScreen />
+                </SignedOut>
 
-            <SignedIn>
-                <RoleBasedRouter />
-            </SignedIn>
+                <SignedIn>
+                    <RoleBasedRouter />
+                </SignedIn>
+            </LocationProvider>
         </main>
     );
 }

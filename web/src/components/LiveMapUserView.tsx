@@ -4,6 +4,8 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { Layers, Navigation } from "lucide-react";
 import { VehicleBottomSheet } from "./VehicleBottomSheet";
+import { triggerHaptic } from "../utils/haptics";
+import { useLocation } from "../context/LocationContext";
 
 // Type assertions for react-leaflet v5 compatibility
 const MapContainerAny = MapContainer as any;
@@ -143,67 +145,19 @@ interface LiveMapUserViewProps {
 }
 
 export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
+    const { location } = useLocation();
     const [selectedVehicle, setSelectedVehicle] = useState<any | null>(null);
     const [showBottomSheet, setShowBottomSheet] = useState(false);
-    const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-    const watchIdRef = useRef<number | null>(null);
     const [_mapReady, setMapReady] = useState(false);
+
+    // Use location from context if available, otherwise use default
+    const userLocation: [number, number] | null = location.isAvailable && location.latitude !== null && location.longitude !== null
+        ? [location.latitude, location.longitude]
+        : null;
 
     // Default center: Bocaue / Dr. Yanga's Colleges, Inc. area
     const defaultCenter: [number, number] = [14.7937, 120.9234];
     const defaultZoom = 15;
-
-    /**
-     * Initialize geolocation tracking on component mount
-     * Continuously watches user position with watchPosition
-     */
-    useEffect(() => {
-        if (!navigator.geolocation) {
-            console.warn("Geolocation is not supported by this browser");
-            return;
-        }
-
-        const successCallback = (position: GeolocationPosition) => {
-            const { latitude, longitude } = position.coords;
-            setUserLocation([latitude, longitude]);
-        };
-
-        const errorCallback = (error: GeolocationPositionError) => {
-            switch (error.code) {
-                case error.PERMISSION_DENIED:
-                    console.warn(
-                        "Geolocation permission denied. Please enable location services to use this feature."
-                    );
-                    break;
-                case error.POSITION_UNAVAILABLE:
-                    console.warn("Location information is unavailable");
-                    break;
-                case error.TIMEOUT:
-                    console.warn("Geolocation request timed out");
-                    break;
-                default:
-                    console.warn("An unknown geolocation error occurred");
-            }
-        };
-
-        // Start watching position: updates continuously
-        watchIdRef.current = navigator.geolocation.watchPosition(
-            successCallback,
-            errorCallback,
-            {
-                enableHighAccuracy: true,
-                maximumAge: 0,
-                timeout: 10000,
-            }
-        );
-
-        // Cleanup: stop watching position on unmount
-        return () => {
-            if (watchIdRef.current !== null) {
-                navigator.geolocation.clearWatch(watchIdRef.current);
-            }
-        };
-    }, []);
 
     // Process fleetData to create vehicle markers
     const vehicles =
@@ -233,6 +187,7 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
             ];
 
     const handleMarkerClick = (vehicle: any) => {
+        triggerHaptic();
         setSelectedVehicle(vehicle);
         setShowBottomSheet(true);
     };
@@ -242,14 +197,24 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
         setSelectedVehicle(null);
     };
 
+    const handleMapClick = () => {
+        if (showBottomSheet) {
+            setShowBottomSheet(false);
+            setSelectedVehicle(null);
+        }
+    };
+
     return (
-        <div className="relative h-screen w-full">
+        <div className="h-full w-full overflow-hidden">
             {/* Map Background */}
             <MapContainerAny
                 center={defaultCenter}
                 zoom={defaultZoom}
                 style={{ height: "100%", width: "100%" }}
                 className="z-0"
+                eventHandlers={{
+                    click: handleMapClick,
+                }}
             >
                 <TileLayerAny
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -262,29 +227,19 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
                     onMapReady={() => setMapReady(true)}
                 />
 
-                {/* Vehicle markers from fleetData */}
+                {/* Vehicle markers from fleetData - opens Bottom Sheet on click */}
                 {vehicles.map((vehicle) => (
                     <MarkerAny
                         key={vehicle.id}
                         position={vehicle.position}
                         icon={createJeepIcon()}
                         eventHandlers={{
-                            click: () => handleMarkerClick(vehicle),
+                            click: (e) => {
+                                L.DomEvent.stopPropagation(e);
+                                handleMarkerClick(vehicle);
+                            },
                         }}
-                    >
-                        <Popup>
-                            <div className="text-center p-2">
-                                <strong className="text-gray-900">
-                                    {vehicle.id}
-                                </strong>
-                                <br />
-                                <span className="text-sm text-gray-600">
-                                    {vehicle.status} • {vehicle.passengerCount}{" "}
-                                    passengers
-                                </span>
-                            </div>
-                        </Popup>
-                    </MarkerAny>
+                    />
                 ))}
 
                 {/* Locate Me Button (inside MapContainer to access useMap) */}

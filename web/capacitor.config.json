@@ -1,5 +1,13 @@
 {
   "appId": "com.chatcommiot.app",
   "appName": "Chatcommiot",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
 }

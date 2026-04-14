@@ -1,36 +1,63 @@
 import { useUser, SignOutButton } from "@clerk/clerk-react";
 import { Edit, ChevronRight, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
+import { triggerHaptic, setHapticEnabled as setGlobalHaptic } from "../utils/haptics";
+import { useLocation } from "../context/LocationContext";
 
-export function UserProfileView() {
+interface UserProfileViewProps {
+    onHapticSettingChange?: (enabled: boolean) => void;
+}
+
+export function UserProfileView({ onHapticSettingChange }: UserProfileViewProps) {
     const { user } = useUser();
+    const { location, requestLocation, clearLocation } = useLocation();
     const [vibrateEnabled, setVibrateEnabled] = useState<boolean>(false);
+    const [locationEnabled, setLocationEnabled] = useState<boolean>(false);
 
-    // Initialize vibrate state from localStorage on mount
     useEffect(() => {
         const saved = localStorage.getItem("vibrateAlerts");
         if (saved !== null) {
-            setVibrateEnabled(JSON.parse(saved));
+            const enabled = JSON.parse(saved);
+            setVibrateEnabled(enabled);
+            setGlobalHaptic(enabled);
+            onHapticSettingChange?.(enabled);
         }
-    }, []);
+    }, [onHapticSettingChange]);
 
-    /**
-     * Toggles vibration alerts on/off
-     * Saves preference to localStorage and provides haptic feedback when enabled
-     */
+    useEffect(() => {
+        setLocationEnabled(location.isAvailable);
+    }, [location.isAvailable]);
+
     const handleToggleVibrate = (enabled: boolean) => {
         setVibrateEnabled(enabled);
         localStorage.setItem("vibrateAlerts", JSON.stringify(enabled));
+        setGlobalHaptic(enabled);
+        onHapticSettingChange?.(enabled);
 
-        // Provide haptic feedback when toggled ON (if device supports it)
-        if (enabled && navigator.vibrate) {
-            navigator.vibrate([200, 100, 200]);
+        if (enabled) {
+            triggerHaptic();
+        }
+    };
+
+    const handleToggleLocation = async (checked: boolean) => {
+        triggerHaptic();
+
+        if (checked) {
+            const success = await requestLocation();
+            if (!success) {
+                setLocationEnabled(false);
+                return;
+            }
+            setLocationEnabled(true);
+        } else {
+            clearLocation();
+            setLocationEnabled(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-gray-100 px-4 py-8 md:px-8">
-            <div className="mx-auto max-w-2xl">
+        <div className="h-full w-full overflow-y-auto overscroll-none bg-gray-100 px-4 py-8 md:px-8">
+            <div className="mx-auto max-w-2xl pb-20">
                 {/* Header */}
                 <h1 className="mb-6 text-2xl font-bold text-gray-900">
                     PROFILE & SETTINGS
@@ -95,7 +122,8 @@ export function UserProfileView() {
                         <label className="relative inline-flex cursor-pointer items-center">
                             <input
                                 type="checkbox"
-                                defaultChecked
+                                checked={locationEnabled}
+                                onChange={(e) => handleToggleLocation(e.target.checked)}
                                 className="peer sr-only"
                             />
                             <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-green-500 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300" />

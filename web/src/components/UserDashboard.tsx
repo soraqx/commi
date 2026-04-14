@@ -4,6 +4,7 @@ import { api } from "../../convex/_generated/api";
 import { Map, Bell, User } from "lucide-react";
 import { LiveMapUserView } from "./LiveMapUserView";
 import { UserProfileView } from "./UserProfileView";
+import { triggerHaptic, setHapticEnabled } from "../utils/haptics";
 
 type UserTabKey = "map" | "alerts" | "profile";
 
@@ -17,6 +18,11 @@ export function UserDashboard() {
         { id: "profile" as const, label: "Profile", icon: User },
     ];
 
+    const handleTabChange = (tabId: UserTabKey) => {
+        triggerHaptic();
+        setActiveTab(tabId);
+    };
+
     if (fleetData === undefined) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-gray-100 px-6">
@@ -28,26 +34,28 @@ export function UserDashboard() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-100">
-            {/* Main Content */}
-            <main className="pb-20 md:pb-0">
+        <div className="h-[100dvh] w-full flex flex-col overflow-hidden bg-gray-100 pt-[env(safe-area-inset-top)]">
+            {/* Main Content Area */}
+            <main className="flex-1 overflow-hidden">
                 {activeTab === "map" && <LiveMapUserView fleetData={fleetData} />}
                 {activeTab === "alerts" && (
-                    <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-                        <Bell className="mb-4 h-12 w-12 text-gray-400" />
-                        <h3 className="text-xl font-semibold text-gray-800">
-                            Alerts
-                        </h3>
-                        <p className="mt-2 max-w-md text-sm text-gray-500">
-                            Notifications and alerts will appear here.
-                        </p>
+                    <div className="h-full w-full overflow-y-auto overscroll-none px-6 py-8">
+                        <div className="flex flex-col items-center justify-center text-center">
+                            <Bell className="mb-4 h-12 w-12 text-gray-400" />
+                            <h3 className="text-xl font-semibold text-gray-800">
+                                Alerts
+                            </h3>
+                            <p className="mt-2 max-w-md text-sm text-gray-500">
+                                Notifications and alerts will appear here.
+                            </p>
+                        </div>
                     </div>
                 )}
-                {activeTab === "profile" && <UserProfileView />}
+                {activeTab === "profile" && <UserProfileView onHapticSettingChange={setHapticEnabled} />}
             </main>
 
             {/* Mobile Bottom Navigation */}
-            <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-gray-50 px-2 py-2 md:hidden">
+            <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-gray-50 px-2 py-2 md:hidden pb-[env(safe-area-inset-bottom)]">
                 <div className="grid grid-cols-3 gap-2">
                     {tabs.map((tab) => {
                         const Icon = tab.icon;
@@ -56,7 +64,7 @@ export function UserDashboard() {
                         return (
                             <button
                                 key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
+                                onClick={() => handleTabChange(tab.id)}
                                 className={`flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium transition-all ${isActive
                                     ? "bg-brand-blue-500 text-white"
                                     : "text-gray-500 hover:bg-brand-blue-100 hover:text-gray-700"
@@ -82,7 +90,7 @@ export function UserDashboard() {
                     return (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
+                            onClick={() => handleTabChange(tab.id)}
                             className={`flex flex-col items-center justify-center gap-1 rounded-xl p-3 text-xs font-medium transition-all ${isActive
                                 ? "bg-brand-blue-500 text-white"
                                 : "text-gray-500 hover:bg-brand-blue-100 hover:text-gray-700"

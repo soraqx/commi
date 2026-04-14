@@ -1,18 +1,20 @@
 import { useSignIn, useSignUp, useClerk } from "@clerk/clerk-react";
 import { useState } from "react";
 import { ArrowLeft, Loader2, LogIn } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 
 type AuthView = "welcome" | "signin" | "signup";
 
 function SignInForm({ onBack }: { onBack: () => void }) {
     const { signIn, isLoaded: signInLoaded } = useSignIn();
     const { setActive } = useClerk();
-    const [identifier, setIdentifier] = useState("");
-    const [password, setPassword] = useState("");
+    const [email, setEmail] = useState("");
+    const [code, setCode] = useState("");
+    const [isVerifying, setIsVerifying] = useState(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSendCode = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!signInLoaded || loading) return;
 
@@ -20,18 +22,38 @@ function SignInForm({ onBack }: { onBack: () => void }) {
         setLoading(true);
 
         try {
-            const result = await signIn.create({
-                identifier,
-                password,
+            await signIn.create({
+                identifier: email,
+                strategy: "email_code",
+            });
+            setIsVerifying(true);
+        } catch (err: any) {
+            setError(err.errors?.[0]?.message || "Failed to send code. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyCode = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!signInLoaded || loading) return;
+
+        setError("");
+        setLoading(true);
+
+        try {
+            const result = await signIn.attemptFirstFactor({
+                strategy: "email_code",
+                code,
             });
 
             if (result.status === "complete") {
                 await setActive({ session: result.createdSessionId });
             } else {
-                setError("Additional verification required.");
+                setError("Verification failed. Please try again.");
             }
         } catch (err: any) {
-            setError(err.errors?.[0]?.message || "Sign in failed. Please try again.");
+            setError(err.errors?.[0]?.message || "Invalid code. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -39,11 +61,15 @@ function SignInForm({ onBack }: { onBack: () => void }) {
 
     const handleGoogleLogin = async () => {
         if (!signInLoaded) return;
-        await signIn.authenticateWithRedirect({
-            strategy: "oauth_google",
-            redirectUrl: "com.chatcommiot.app://oauth-callback",
-            redirectUrlComplete: "/"
-        });
+        try {
+            await signIn.authenticateWithRedirect({
+                strategy: "oauth_google",
+                redirectUrl: "/sso-callback",
+                redirectUrlComplete: "/"
+            });
+        } catch (err) {
+            console.error("Google login error:", err);
+        }
     };
 
     return (
@@ -59,7 +85,9 @@ function SignInForm({ onBack }: { onBack: () => void }) {
 
             <div className="text-center">
                 <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
-                <p className="mt-1 text-gray-500">Sign in to your account</p>
+                <p className="mt-1 text-gray-500">
+                    {isVerifying ? "Enter the code sent to your email" : "Sign in to your account"}
+                </p>
             </div>
 
             {error && (
@@ -68,84 +96,122 @@ function SignInForm({ onBack }: { onBack: () => void }) {
                 </div>
             )}
 
-            <button
-                onClick={handleGoogleLogin}
-                disabled={loading}
-                className="w-full rounded-full bg-white border border-gray-300 px-8 py-3 font-bold text-gray-800 shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
-            >
-                <span className="flex items-center justify-center gap-2">
-                    <LogIn className="h-5 w-5" />
-                    Sign in with Google
-                </span>
-            </button>
-
-            <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-gray-200" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                    <span className="bg-white px-2 text-gray-500">or continue with email</span>
-                </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label htmlFor="signin-email" className="block text-sm font-medium text-gray-700">
-                        Email
-                    </label>
-                    <input
-                        id="signin-email"
-                        type="email"
-                        value={identifier}
-                        onChange={(e) => setIdentifier(e.target.value)}
-                        required
-                        className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-                        placeholder="you@example.com"
-                    />
-                </div>
-
-                <div>
-                    <label htmlFor="signin-password" className="block text-sm font-medium text-gray-700">
-                        Password
-                    </label>
-                    <input
-                        id="signin-password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-                        placeholder="••••••••"
-                    />
-                </div>
-
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full rounded-full bg-cyan-400 px-8 py-3 font-bold text-gray-800 shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
-                >
-                    {loading ? (
+            {!Capacitor.isNativePlatform() && !isVerifying && (
+                <>
+                    <button
+                        onClick={handleGoogleLogin}
+                        disabled={loading}
+                        className="w-full rounded-full bg-white border border-gray-300 px-8 py-3 font-bold text-gray-800 shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
+                    >
                         <span className="flex items-center justify-center gap-2">
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                            Signing in...
+                            <LogIn className="h-5 w-5" />
+                            Sign in with Google
                         </span>
-                    ) : (
-                        "SIGN IN"
-                    )}
-                </button>
-            </form>
+                    </button>
+
+                    <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t border-gray-200" />
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                            <span className="bg-white px-2 text-gray-500">or continue with email</span>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {!isVerifying ? (
+                <form onSubmit={handleSendCode} className="space-y-4">
+                    <div>
+                        <label htmlFor="signin-email" className="block text-sm font-medium text-gray-700">
+                            Email
+                        </label>
+                        <input
+                            id="signin-email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                            placeholder="you@example.com"
+                        />
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full rounded-full bg-cyan-400 px-8 py-3 font-bold text-gray-800 shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
+                    >
+                        {loading ? (
+                            <span className="flex items-center justify-center gap-2">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                Sending code...
+                            </span>
+                        ) : (
+                            "SEND CODE"
+                        )}
+                    </button>
+                </form>
+            ) : (
+                <form onSubmit={handleVerifyCode} className="space-y-4">
+                    <div>
+                        <label htmlFor="signin-code" className="block text-sm font-medium text-gray-700">
+                            Verification Code
+                        </label>
+                        <input
+                            id="signin-code"
+                            type="text"
+                            value={code}
+                            onChange={(e) => setCode(e.target.value)}
+                            required
+                            maxLength={6}
+                            className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                            placeholder="123456"
+                        />
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full rounded-full bg-cyan-400 px-8 py-3 font-bold text-gray-800 shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
+                    >
+                        {loading ? (
+                            <span className="flex items-center justify-center gap-2">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                Verifying...
+                            </span>
+                        ) : (
+                            "VERIFY & SIGN IN"
+                        )}
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setIsVerifying(false);
+                            setCode("");
+                            setError("");
+                        }}
+                        className="w-full text-sm text-gray-500 hover:text-gray-700"
+                    >
+                        Didn't receive a code? Send again
+                    </button>
+                </form>
+            )}
         </div>
     );
 }
 
 function SignUpForm({ onBack }: { onBack: () => void }) {
     const { signUp, isLoaded: signUpLoaded } = useSignUp();
+    const { setActive } = useClerk();
     const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
+    const [code, setCode] = useState("");
+    const [isVerifying, setIsVerifying] = useState(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSendCode = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!signUpLoaded || loading) return;
 
@@ -155,13 +221,37 @@ function SignUpForm({ onBack }: { onBack: () => void }) {
         try {
             await signUp.create({
                 emailAddress: email,
-                password,
+            });
+            await signUp.prepareEmailAddressVerification({
+                strategy: "email_code",
+            });
+            setIsVerifying(true);
+        } catch (err: any) {
+            setError(err.errors?.[0]?.message || "Failed to send code. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyCode = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!signUpLoaded || loading) return;
+
+        setError("");
+        setLoading(true);
+
+        try {
+            const result = await signUp.attemptEmailAddressVerification({
+                code,
             });
 
-            await signUp.prepareEmailAddressVerification();
-            onBack();
+            if (result.status === "complete") {
+                await setActive({ session: result.createdSessionId });
+            } else {
+                setError("Verification failed. Please try again.");
+            }
         } catch (err: any) {
-            setError(err.errors?.[0]?.message || "Sign up failed. Please try again.");
+            setError(err.errors?.[0]?.message || "Invalid code. Please try again.");
         } finally {
             setLoading(false);
         }
@@ -169,11 +259,15 @@ function SignUpForm({ onBack }: { onBack: () => void }) {
 
     const handleGoogleSignUp = async () => {
         if (!signUpLoaded) return;
-        await signUp.authenticateWithRedirect({
-            strategy: "oauth_google",
-            redirectUrl: "com.chatcommiot.app://oauth-callback",
-            redirectUrlComplete: "/"
-        });
+        try {
+            await signUp.authenticateWithRedirect({
+                strategy: "oauth_google",
+                redirectUrl: "/sso-callback",
+                redirectUrlComplete: "/"
+            });
+        } catch (err) {
+            console.error("Google signup error:", err);
+        }
     };
 
     return (
@@ -189,7 +283,9 @@ function SignUpForm({ onBack }: { onBack: () => void }) {
 
             <div className="text-center">
                 <h2 className="text-2xl font-bold text-gray-900">Create Account</h2>
-                <p className="mt-1 text-gray-500">Join Chatcommiot</p>
+                <p className="mt-1 text-gray-500">
+                    {isVerifying ? "Enter the code sent to your email" : "Join Chatcommiot"}
+                </p>
             </div>
 
             {error && (
@@ -198,73 +294,108 @@ function SignUpForm({ onBack }: { onBack: () => void }) {
                 </div>
             )}
 
-            <button
-                onClick={handleGoogleSignUp}
-                disabled={loading}
-                className="w-full rounded-full bg-white border border-gray-300 px-8 py-3 font-bold text-gray-800 shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
-            >
-                <span className="flex items-center justify-center gap-2">
-                    <LogIn className="h-5 w-5" />
-                    Sign up with Google
-                </span>
-            </button>
-
-            <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-gray-200" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                    <span className="bg-white px-2 text-gray-500">or continue with email</span>
-                </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label htmlFor="signup-email" className="block text-sm font-medium text-gray-700">
-                        Email
-                    </label>
-                    <input
-                        id="signup-email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-                        placeholder="you@example.com"
-                    />
-                </div>
-
-                <div>
-                    <label htmlFor="signup-password" className="block text-sm font-medium text-gray-700">
-                        Password
-                    </label>
-                    <input
-                        id="signup-password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        minLength={8}
-                        className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
-                        placeholder="Min 8 characters"
-                    />
-                </div>
-
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full rounded-full bg-cyan-400 px-8 py-3 font-bold text-gray-800 shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
-                >
-                    {loading ? (
+            {!Capacitor.isNativePlatform() && !isVerifying && (
+                <>
+                    <button
+                        onClick={handleGoogleSignUp}
+                        disabled={loading}
+                        className="w-full rounded-full bg-white border border-gray-300 px-8 py-3 font-bold text-gray-800 shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
+                    >
                         <span className="flex items-center justify-center gap-2">
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                            Creating account...
+                            <LogIn className="h-5 w-5" />
+                            Sign up with Google
                         </span>
-                    ) : (
-                        "CREATE ACCOUNT"
-                    )}
-                </button>
-            </form>
+                    </button>
+
+                    <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t border-gray-200" />
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                            <span className="bg-white px-2 text-gray-500">or continue with email</span>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {!isVerifying ? (
+                <form onSubmit={handleSendCode} className="space-y-4">
+                    <div>
+                        <label htmlFor="signup-email" className="block text-sm font-medium text-gray-700">
+                            Email
+                        </label>
+                        <input
+                            id="signup-email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                            placeholder="you@example.com"
+                        />
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full rounded-full bg-cyan-400 px-8 py-3 font-bold text-gray-800 shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
+                    >
+                        {loading ? (
+                            <span className="flex items-center justify-center gap-2">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                Sending code...
+                            </span>
+                        ) : (
+                            "SEND CODE"
+                        )}
+                    </button>
+                </form>
+            ) : (
+                <form onSubmit={handleVerifyCode} className="space-y-4">
+                    <div>
+                        <label htmlFor="signup-code" className="block text-sm font-medium text-gray-700">
+                            Verification Code
+                        </label>
+                        <input
+                            id="signup-code"
+                            type="text"
+                            value={code}
+                            onChange={(e) => setCode(e.target.value)}
+                            required
+                            maxLength={6}
+                            className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+                            placeholder="123456"
+                        />
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full rounded-full bg-cyan-400 px-8 py-3 font-bold text-gray-800 shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
+                    >
+                        {loading ? (
+                            <span className="flex items-center justify-center gap-2">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                Verifying...
+                            </span>
+                        ) : (
+                            "VERIFY & CREATE ACCOUNT"
+                        )}
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setIsVerifying(false);
+                            setCode("");
+                            setError("");
+                        }}
+                        className="w-full text-sm text-gray-500 hover:text-gray-700"
+                    >
+                        Didn't receive a code? Send again
+                    </button>
+                </form>
+            )}
         </div>
     );
 }
