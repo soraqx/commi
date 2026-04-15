@@ -22,4 +22,12 @@ export default defineSchema({
         role: v.union(v.literal("admin"), v.literal("user")),
         email: v.string(),
     }).index("by_clerkId", ["clerkId"]),
+    
+    // Landmarks table for persistent geofence locations
+    landmarks: defineTable({
+        name: v.string(),
+        lat: v.number(),
+        lng: v.number(),
+        radius: v.number(),
+    }).index("by_name", ["name"]),
 });

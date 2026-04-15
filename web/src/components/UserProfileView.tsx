@@ -1,5 +1,5 @@
 import { useUser, SignOutButton } from "@clerk/clerk-react";
-import { Edit, ChevronRight, LogOut } from "lucide-react";
+import { MapPin, Bell, Shield, LogOut, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { triggerHaptic, setHapticEnabled as setGlobalHaptic } from "../utils/haptics";
 import { useLocation } from "../context/LocationContext";
@@ -56,67 +56,51 @@ export function UserProfileView({ onHapticSettingChange }: UserProfileViewProps)
     };
 
     return (
-        <div className="h-full w-full overflow-y-auto overscroll-none bg-gray-100 px-4 py-8 md:px-8">
-            <div className="mx-auto max-w-2xl pb-20">
-                {/* Header */}
-                <h1 className="mb-6 text-2xl font-bold text-gray-900">
-                    PROFILE & SETTINGS
-                </h1>
+        <div className="h-full w-full overflow-y-auto overscroll-none bg-slate-50 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+            {/* Page Title */}
+            <h1 className="text-3xl font-bold px-4 pt-8 pb-4 text-gray-900">
+                Settings
+            </h1>
 
-                {/* User Card */}
-                <div className="mb-6 rounded-2xl bg-white p-6 shadow-lg">
-                    <div className="flex items-center gap-4">
-                        {/* Avatar */}
-                        <div className="relative">
-                            {user?.imageUrl ? (
-                                <img
-                                    src={user.imageUrl}
-                                    alt={user.fullName || "User"}
-                                    className="h-16 w-16 rounded-full object-cover"
-                                />
-                            ) : (
-                                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-blue-500">
-                                    <span className="text-2xl font-bold text-white">
-                                        {user?.firstName?.charAt(0) || "U"}
-                                    </span>
-                                </div>
-                            )}
-                            <button className="absolute bottom-0 right-0 flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 shadow-md transition-all hover:bg-gray-200">
-                                <Edit className="h-3 w-3 text-gray-600" />
-                            </button>
+            {/* User Profile Card */}
+            <div className="mx-4 mb-6 overflow-hidden rounded-2xl bg-white shadow-sm p-4 flex items-center gap-4">
+                <div className="shrink-0">
+                    {user?.imageUrl ? (
+                        <img
+                            src={user.imageUrl}
+                            alt={user.fullName || "User"}
+                            className="h-12 w-12 rounded-full object-cover"
+                        />
+                    ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-blue-500">
+                            <span className="text-lg font-bold text-white">
+                                {user?.firstName?.charAt(0) || "U"}
+                            </span>
                         </div>
-
-                        {/* User Info */}
-                        <div className="flex-1">
-                            <h2 className="text-lg font-semibold text-gray-900">
-                                {user?.fullName || "User"}
-                            </h2>
-                            <p className="text-sm text-gray-500">
-                                {user?.primaryEmailAddress?.emailAddress || "No email"}
-                            </p>
-                        </div>
-
-                        {/* Edit Button */}
-                        <button className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 transition-all hover:bg-gray-200">
-                            <Edit className="h-5 w-5 text-gray-600" />
-                        </button>
-                    </div>
+                    )}
                 </div>
+                <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 truncate">
+                        {user?.fullName || "User"}
+                    </p>
+                    <p className="text-sm text-gray-500 truncate">
+                        {user?.primaryEmailAddress?.emailAddress || "No email"}
+                    </p>
+                </div>
+            </div>
 
-                {/* Privacy Toggles */}
-                <div className="mb-6 rounded-2xl bg-white shadow-lg">
-                    <div className="flex items-center justify-between border-b border-gray-100 p-4">
+            {/* Card: Preferences */}
+            <div className="mx-4 mb-6 overflow-hidden rounded-2xl bg-white shadow-sm">
+                <div className="divide-y divide-gray-100">
+                    {/* Location Toggle */}
+                    <div className="flex items-center justify-between p-4">
                         <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
-                                <span className="text-lg">📍</span>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-100">
+                                <MapPin className="h-5 w-5 text-green-600" />
                             </div>
                             <div>
-                                <h3 className="font-medium text-gray-900">
-                                    Location Services
-                                </h3>
-                                <p className="text-sm text-gray-500">
-                                    Allow location tracking
-                                </p>
+                                <p className="font-medium text-gray-900">Location Services</p>
+                                <p className="text-sm text-gray-500">Allow location tracking</p>
                             </div>
                         </div>
                         <label className="relative inline-flex cursor-pointer items-center">
@@ -126,22 +110,19 @@ export function UserProfileView({ onHapticSettingChange }: UserProfileViewProps)
                                 onChange={(e) => handleToggleLocation(e.target.checked)}
                                 className="peer sr-only"
                             />
-                            <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-green-500 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300" />
+                            <div className="peer h-7 w-12 rounded-full bg-gray-200 after:absolute after:left-[3px] after:top-[3px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300" />
                         </label>
                     </div>
 
-                    <div className="flex items-center justify-between border-b border-gray-100 p-4">
+                    {/* Vibration Toggle */}
+                    <div className="flex items-center justify-between p-4">
                         <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100">
-                                <span className="text-lg">📳</span>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100">
+                                <Bell className="h-5 w-5 text-purple-600" />
                             </div>
                             <div>
-                                <h3 className="font-medium text-gray-900">
-                                    Vibration Alerts
-                                </h3>
-                                <p className="text-sm text-gray-500">
-                                    Haptic feedback on notifications
-                                </p>
+                                <p className="font-medium text-gray-900">Vibration Alerts</p>
+                                <p className="text-sm text-gray-500">Haptic feedback</p>
                             </div>
                         </div>
                         <label className="relative inline-flex cursor-pointer items-center">
@@ -151,29 +132,33 @@ export function UserProfileView({ onHapticSettingChange }: UserProfileViewProps)
                                 onChange={(e) => handleToggleVibrate(e.target.checked)}
                                 className="peer sr-only"
                             />
-                            <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-500 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300" />
+                            <div className="peer h-7 w-12 rounded-full bg-gray-200 after:absolute after:left-[3px] after:top-[3px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-300" />
                         </label>
                     </div>
+                </div>
+            </div>
 
-                    <div className="flex items-center justify-between border-b border-gray-100 p-4">
+            {/* Card: Account */}
+            <div className="mx-4 mb-6 overflow-hidden rounded-2xl bg-white shadow-sm">
+                <div className="divide-y divide-gray-100">
+                    {/* Data Privacy */}
+                    <button className="flex w-full items-center justify-between p-4 transition-colors hover:bg-gray-50">
                         <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-                                <span className="text-lg">🔒</span>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100">
+                                <Shield className="h-5 w-5 text-blue-600" />
                             </div>
-                            <div>
-                                <h3 className="font-medium text-gray-900">Data Privacy</h3>
-                                <p className="text-sm text-gray-500">
-                                    Manage your data settings
-                                </p>
+                            <div className="text-left">
+                                <p className="font-medium text-gray-900">Data Privacy</p>
+                                <p className="text-sm text-gray-500">Manage your data</p>
                             </div>
                         </div>
-                        <button className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 transition-all hover:bg-gray-200">
-                            <ChevronRight className="h-5 w-5 text-gray-600" />
-                        </button>
-                    </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </button>
                 </div>
+            </div>
 
-                {/* Sign Out Button */}
+            {/* Sign Out Button */}
+            <div className="mx-4">
                 <SignOutButton>
                     <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500 px-6 py-4 font-semibold text-white transition-all hover:bg-red-600">
                         <LogOut className="h-5 w-5" />

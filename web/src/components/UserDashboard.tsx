@@ -39,8 +39,9 @@ export function UserDashboard() {
             <main className="flex-1 overflow-hidden">
                 {activeTab === "map" && <LiveMapUserView fleetData={fleetData} />}
                 {activeTab === "alerts" && (
-                    <div className="h-full w-full overflow-y-auto overscroll-none px-6 py-8">
-                        <div className="flex flex-col items-center justify-center text-center">
+                    <div className="h-full w-full overflow-y-auto overscroll-none bg-slate-50 pt-[env(safe-area-inset-top)]">
+                        <h1 className="text-3xl font-bold px-4 pt-8 pb-4 text-gray-900">Alerts</h1>
+                        <div className="flex flex-col items-center justify-center text-center px-4">
                             <Bell className="mb-4 h-12 w-12 text-gray-400" />
                             <h3 className="text-xl font-semibold text-gray-800">
                                 Alerts
@@ -55,7 +56,7 @@ export function UserDashboard() {
             </main>
 
             {/* Mobile Bottom Navigation */}
-            <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-gray-50 px-2 py-2 md:hidden pb-[env(safe-area-inset-bottom)]">
+            <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-gray-50 px-2 pt-3 md:hidden pb-[calc(env(safe-area-inset-bottom)+1rem)]">
                 <div className="grid grid-cols-3 gap-2">
                     {tabs.map((tab) => {
                         const Icon = tab.icon;

@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker } from "react-leaflet";
+import { useState, useEffect, useRef, Fragment } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker, Circle } from "react-leaflet";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { Layers, Navigation } from "lucide-react";
+import { Layers, Navigation, MapPin } from "lucide-react";
 import { VehicleBottomSheet } from "./VehicleBottomSheet";
 import { triggerHaptic } from "../utils/haptics";
 import { useLocation } from "../context/LocationContext";
@@ -11,6 +13,34 @@ import { useLocation } from "../context/LocationContext";
 const MapContainerAny = MapContainer as any;
 const TileLayerAny = TileLayer as any;
 const MarkerAny = Marker as any;
+const CircleAny = Circle as any;
+
+const createLandmarkIcon = () => {
+    return L.divIcon({
+        className: "custom-landmark-marker",
+        html: `
+            <div style="
+                background-color: #6b7280;
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                border: 2px solid white;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            ">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                </svg>
+            </div>
+        `,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+        popupAnchor: [0, -12],
+    });
+};
 
 // Fix for default marker icon
 const DefaultIcon = L.icon({
@@ -149,6 +179,8 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
     const [selectedVehicle, setSelectedVehicle] = useState<any | null>(null);
     const [showBottomSheet, setShowBottomSheet] = useState(false);
     const [_mapReady, setMapReady] = useState(false);
+    
+    const landmarksData = useQuery(api.landmarks.list);
 
     // Use location from context if available, otherwise use default
     const userLocation: [number, number] | null = location.isAvailable && location.latitude !== null && location.longitude !== null
@@ -205,8 +237,8 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
     };
 
     return (
-        <div className="h-full w-full overflow-hidden">
-            {/* Map Background */}
+        <div className="absolute inset-0 h-full w-full">
+            {/* Map Background - Edge to Edge */}
             <MapContainerAny
                 center={defaultCenter}
                 zoom={defaultZoom}
@@ -227,6 +259,34 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
                     onMapReady={() => setMapReady(true)}
                 />
 
+                {/* Landmarks from Convex */}
+                {landmarksData && landmarksData.map((landmark: any) => (
+                    <Fragment key={landmark._id}>
+                        <CircleAny
+                            center={[landmark.lat, landmark.lng] as [number, number]}
+                            radius={landmark.radius}
+                            pathOptions={{
+                                color: "#6b7280",
+                                fillColor: "#6b7280",
+                                fillOpacity: 0.1,
+                                weight: 1,
+                                dashArray: "5, 5",
+                            }}
+                        />
+                        <MarkerAny
+                            position={[landmark.lat, landmark.lng] as [number, number]}
+                            icon={createLandmarkIcon()}
+                        >
+                            <Popup>
+                                <div className="text-center p-1">
+                                    <strong className="text-gray-900 text-sm">{landmark.name}</strong>
+                                    <p className="text-xs text-gray-500 mt-1">Geofence: {landmark.radius}m</p>
+                                </div>
+                            </Popup>
+                        </MarkerAny>
+                    </Fragment>
+                ))}
+
                 {/* Vehicle markers from fleetData - opens Bottom Sheet on click */}
                 {vehicles.map((vehicle) => (
                     <MarkerAny
@@ -245,24 +305,6 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
                 {/* Locate Me Button (inside MapContainer to access useMap) */}
                 <LocateMeButton userLocation={userLocation} />
             </MapContainerAny>
-
-            {/* Floating Logo at Top Center */}
-            <div className="absolute left-1/2 top-4 z-[1000] flex -translate-x-1/2 transform items-center gap-3 rounded-full bg-white/95 px-4 py-2 shadow-lg backdrop-blur-sm">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-blue-500">
-                    <span className="text-sm font-bold text-white">C</span>
-                </div>
-            </div>
-
-            {/* Layers Button at Top Right */}
-            <button className="absolute right-4 top-4 z-[1000] flex h-10 w-10 items-center justify-center rounded-full bg-white/95 shadow-lg backdrop-blur-sm transition-all hover:bg-white">
-                <Layers className="h-5 w-5 text-gray-700" />
-            </button>
-
-            {/* Live Tracking Status Pill */}
-            <div className="absolute left-1/2 top-20 z-[1000] flex -translate-x-1/2 transform items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-medium text-green-700 shadow-lg">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
-                Live Tracking Active
-            </div>
 
             {/* Vehicle Bottom Sheet */}
             {showBottomSheet && selectedVehicle && (

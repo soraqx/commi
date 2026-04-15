@@ -9,6 +9,7 @@
  */
 
 import type * as fleet from "../fleet.js";
+import type * as landmarks from "../landmarks.js";
 import type * as users from "../users.js";
 
 import type {
@@ -19,6 +20,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   fleet: typeof fleet;
+  landmarks: typeof landmarks;
   users: typeof users;
 }>;
 
