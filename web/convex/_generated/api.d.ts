@@ -8,7 +8,10 @@
  * @module
  */
 
+import type * as config from "../config.js";
 import type * as fleet from "../fleet.js";
+import type * as history from "../history.js";
+import type * as http from "../http.js";
 import type * as landmarks from "../landmarks.js";
 import type * as users from "../users.js";
 
@@ -19,7 +22,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  config: typeof config;
   fleet: typeof fleet;
+  history: typeof history;
+  http: typeof http;
   landmarks: typeof landmarks;
   users: typeof users;
 }>;

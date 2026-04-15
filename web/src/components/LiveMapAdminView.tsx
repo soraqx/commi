@@ -128,18 +128,18 @@ function findNearbyLandmark(lat: number, lng: number, landmarks: any[]): string 
 
 function useWindowSize() {
     const [size, setSize] = useState({ width: typeof window !== 'undefined' ? window.innerWidth : 1200 });
-    
+
     useEffect(() => {
         const handleResize = () => {
             setSize({ width: window.innerWidth });
         };
-        
+
         window.addEventListener('resize', handleResize);
         handleResize();
-        
+
         return () => window.removeEventListener('resize', handleResize);
     }, []);
-    
+
     return size;
 }
 
@@ -156,11 +156,11 @@ interface LiveMapAdminViewProps {
     fleetData?: any[];
 }
 
-function MapClickHandler({ 
-    isAddingMode, 
-    onMapClick 
-}: { 
-    isAddingMode: boolean; 
+function MapClickHandler({
+    isAddingMode,
+    onMapClick
+}: {
+    isAddingMode: boolean;
     onMapClick: (lat: number, lng: number) => void;
 }) {
     useMapEvents({
@@ -176,18 +176,18 @@ function MapClickHandler({
 export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
     const { width } = useWindowSize();
     const isMobile = width < 768;
-    
+
     const [selectedJeepney, setSelectedJeepney] = useState<SelectedJeepney | null>(null);
     const [isAddingMode, setIsAddingMode] = useState(false);
-    const [pendingLandmarkLocation, setPendingLandmarkLocation] = useState<{lat: number, lng: number} | null>(null);
-    
+    const [pendingLandmarkLocation, setPendingLandmarkLocation] = useState<{ lat: number, lng: number } | null>(null);
+
     const landmarksData = useQuery(api.landmarks.list);
     const createLandmark = useMutation(api.landmarks.create);
     const removeLandmark = useMutation(api.landmarks.remove);
-    
+
     const defaultCenter: [number, number] = [14.7937, 120.9234];
     const defaultZoom = 15;
-    
+
     const vehicles = fleetData && fleetData.length > 0
         ? fleetData.map(vehicle => ({
             id: vehicle.deviceId || vehicle._id,
@@ -208,7 +208,7 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
             latitude: 14.7920,
             longitude: 120.9220,
         }];
-    
+
     const handleJeepClick = useCallback((vehicle: typeof vehicles[0]) => {
         setSelectedJeepney({
             id: vehicle.id,
@@ -219,19 +219,19 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
             aiStatus: 'Ready',
         });
     }, []);
-    
+
     const handleClosePanel = useCallback(() => {
         setSelectedJeepney(null);
     }, []);
-    
+
     const handleMapClick = useCallback(() => {
         setSelectedJeepney(null);
     }, []);
-    
+
     const handleAddLandmarkClick = useCallback((lat: number, lng: number) => {
         setPendingLandmarkLocation({ lat, lng });
     }, []);
-    
+
     const handleSaveLandmark = useCallback(async (name: string, radius: number) => {
         if (pendingLandmarkLocation) {
             await createLandmark({
@@ -244,52 +244,43 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
             setIsAddingMode(false);
         }
     }, [pendingLandmarkLocation, createLandmark]);
-    
+
     const handleDeleteLandmark = useCallback(async (id: string) => {
         await removeLandmark({ id: id as any });
     }, [removeLandmark]);
-    
+
     const handleCancelLandmark = useCallback(() => {
         setPendingLandmarkLocation(null);
     }, []);
-    
+
     const toggleAddingMode = useCallback(() => {
         setIsAddingMode(prev => !prev);
         if (!isAddingMode) {
             setSelectedJeepney(null);
         }
     }, [isAddingMode]);
-    
-    const nearbyLandmark = selectedJeepney 
+
+    const nearbyLandmark = selectedJeepney
         ? findNearbyLandmark(selectedJeepney.latitude, selectedJeepney.longitude, landmarksData || [])
         : null;
-    
+
     return (
         <div className="relative w-full h-full">
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] flex items-center gap-3 bg-slate-900/90 backdrop-blur-sm rounded-full px-4 py-2 border border-slate-700/50">
-                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">EJ</span>
-                </div>
-                <div className="flex items-center gap-2 bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-sm font-medium border border-emerald-500/30">
-                    <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                    Live Tracking
-                </div>
-            </div>
-            
+
+
             <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
                 <button
                     onClick={toggleAddingMode}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                        isAddingMode
-                            ? 'bg-red-500/20 text-red-400 border-2 border-red-500 animate-pulse'
-                            : 'bg-slate-900/90 text-slate-300 border border-slate-700/50 hover:bg-slate-800'
-                    }`}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${isAddingMode
+                        ? 'bg-red-500/20 text-red-400 border-2 border-red-500 animate-pulse'
+                        : 'bg-slate-900/90 text-slate-300 border border-slate-700/50 hover:bg-slate-800'
+                        }`}
                 >
                     <Target className="h-4 w-4" />
                     {isAddingMode ? 'Adding...' : 'Add Landmark'}
                 </button>
             </div>
-            
+
             {pendingLandmarkLocation && (
                 <div className="fixed inset-0 z-[2000] bg-black/50 flex items-center justify-center">
                     <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
@@ -347,7 +338,7 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
                     </div>
                 </div>
             )}
-            
+
             <MapContainerAny
                 center={defaultCenter}
                 zoom={defaultZoom}
@@ -359,7 +350,7 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                
+
                 {landmarksData && landmarksData.map((landmark: any) => (
                     <Fragment key={landmark._id}>
                         <CircleAny
@@ -395,7 +386,7 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
                         </MarkerAny>
                     </Fragment>
                 ))}
-                
+
                 {vehicles.map((vehicle) => (
                     <MarkerAny
                         key={vehicle.id}
@@ -419,10 +410,10 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
                     </MarkerAny>
                 ))}
             </MapContainerAny>
-            
+
             {selectedJeepney && isMobile && (
                 <>
-                    <div 
+                    <div
                         className="fixed inset-0 z-[1000] bg-black/30 md:hidden"
                         onClick={handleClosePanel}
                     />
@@ -438,9 +429,9 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
                                 >
                                     <X className="h-4 w-4 text-slate-300" />
                                 </button>
-                                
+
                                 <h2 className="text-2xl font-bold text-white">{selectedJeepney.id}</h2>
-                                
+
                                 <div className="mt-4 flex items-center gap-3 rounded-2xl bg-blue-500/20 p-4 border border-blue-500/30">
                                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-500">
                                         <Users className="h-6 w-6 text-white" />
@@ -454,7 +445,7 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
                                         </p>
                                     </div>
                                 </div>
-                                
+
                                 <div className="mt-4 space-y-3 text-sm">
                                     <div className="flex items-center justify-between rounded-xl bg-slate-800/50 p-3">
                                         <span className="text-slate-400">GPS Location</span>
@@ -475,7 +466,7 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
                     </div>
                 </>
             )}
-            
+
             {selectedJeepney && !isMobile && (
                 <div className="absolute right-0 top-0 z-[1001] w-96 h-full bg-slate-900 border-l border-slate-800 shadow-2xl overflow-y-auto">
                     <div className="p-6">
@@ -488,7 +479,7 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
                                 <X className="h-4 w-4 text-slate-300" />
                             </button>
                         </div>
-                        
+
                         <div className="flex items-center gap-4 rounded-2xl bg-blue-500/20 p-5 border border-blue-500/30">
                             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-500">
                                 <Users className="h-7 w-7 text-white" />
@@ -502,7 +493,7 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
                                 </p>
                             </div>
                         </div>
-                        
+
                         <div className="mt-6 space-y-4">
                             <div className="rounded-xl bg-slate-800/50 p-4">
                                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
@@ -513,7 +504,7 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
                                     {selectedJeepney.latitude.toFixed(5)}, {selectedJeepney.longitude.toFixed(5)}
                                 </p>
                             </div>
-                            
+
                             <div className="rounded-xl bg-slate-800/50 p-4">
                                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
                                     <Sparkles className="h-3 w-3 inline mr-1" />
@@ -524,7 +515,7 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
                                     {selectedJeepney.aiStatus || 'Ready'}
                                 </span>
                             </div>
-                            
+
                             {nearbyLandmark && (
                                 <div className="rounded-xl bg-emerald-500/20 p-4 border border-emerald-500/30">
                                     <p className="text-xs font-medium text-emerald-400 uppercase tracking-wide mb-1">

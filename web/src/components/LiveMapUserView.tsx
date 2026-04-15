@@ -4,10 +4,25 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { Layers, Navigation, MapPin } from "lucide-react";
+import { Navigation } from "lucide-react";
 import { VehicleBottomSheet } from "./VehicleBottomSheet";
 import { triggerHaptic } from "../utils/haptics";
 import { useLocation } from "../context/LocationContext";
+
+function getDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371000;
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) *
+        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+}
 
 // Type assertions for react-leaflet v5 compatibility
 const MapContainerAny = MapContainer as any;
@@ -156,7 +171,7 @@ function LocateMeButton({
         <button
             onClick={handleLocateMe}
             disabled={!userLocation}
-            className={`absolute bottom-24 right-4 z-[1000] flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all ${userLocation
+            className={`absolute bottom-24 right-4 z-1000 flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all ${userLocation
                 ? "bg-blue-500 hover:bg-blue-600"
                 : "bg-gray-300 cursor-not-allowed"
                 } ${isAnimating ? "animate-pulse" : ""}`}
@@ -179,8 +194,10 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
     const [selectedVehicle, setSelectedVehicle] = useState<any | null>(null);
     const [showBottomSheet, setShowBottomSheet] = useState(false);
     const [_mapReady, setMapReady] = useState(false);
+    const [arrivalNotification, setArrivalNotification] = useState<string | null>(null);
     
     const landmarksData = useQuery(api.landmarks.list);
+    const occupiedLandmarks = useRef<Set<string>>(new Set());
 
     // Use location from context if available, otherwise use default
     const userLocation: [number, number] | null = location.isAvailable && location.latitude !== null && location.longitude !== null
@@ -215,8 +232,37 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
                     eta: "~4 mins",
                     distance: "1.2km",
                     capacity: "Not Full",
+                    latitude: 14.792,
+                    longitude: 120.922,
                 },
             ];
+
+    useEffect(() => {
+        if (!landmarksData || landmarksData.length === 0 || !selectedVehicle) return;
+
+        const vehicleLat = selectedVehicle.latitude ?? selectedVehicle.position[0];
+        const vehicleLng = selectedVehicle.longitude ?? selectedVehicle.position[1];
+
+        landmarksData.forEach((landmark: any) => {
+            const distance = getDistanceInMeters(
+                vehicleLat,
+                vehicleLng,
+                landmark.lat,
+                landmark.lng
+            );
+            const withinGeofence = distance <= landmark.radius;
+
+            if (withinGeofence && !occupiedLandmarks.current.has(landmark._id)) {
+                occupiedLandmarks.current.add(landmark._id);
+                triggerHaptic();
+                triggerHaptic();
+                setArrivalNotification(`Jeepney has arrived at ${landmark.name}`);
+                setTimeout(() => setArrivalNotification(null), 3000);
+            } else if (!withinGeofence && occupiedLandmarks.current.has(landmark._id)) {
+                occupiedLandmarks.current.delete(landmark._id);
+            }
+        });
+    }, [selectedVehicle, landmarksData]);
 
     const handleMarkerClick = (vehicle: any) => {
         triggerHaptic();
@@ -238,6 +284,15 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
 
     return (
         <div className="absolute inset-0 h-full w-full">
+            {/* Arrival Notification Toast */}
+            {arrivalNotification && (
+                <div className="absolute top-4 left-4 right-4 z-1000 flex items-center justify-center">
+                    <div className="bg-emerald-500 text-white px-4 py-2 rounded-full shadow-lg text-sm font-medium animate-pulse">
+                        {arrivalNotification}
+                    </div>
+                </div>
+            )}
+            
             {/* Map Background - Edge to Edge */}
             <MapContainerAny
                 center={defaultCenter}
@@ -294,7 +349,7 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
                         position={vehicle.position}
                         icon={createJeepIcon()}
                         eventHandlers={{
-                            click: (e) => {
+                            click: (e: any) => {
                                 L.DomEvent.stopPropagation(e);
                                 handleMarkerClick(vehicle);
                             },

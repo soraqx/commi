@@ -30,4 +30,21 @@ export default defineSchema({
         lng: v.number(),
         radius: v.number(),
     }).index("by_name", ["name"]),
+
+    // Telemetry logs for historical data and audits
+    telemetry_logs: defineTable({
+        vehicleId: v.string(),
+        eventType: v.union(v.literal("ping"), v.literal("warning"), v.literal("geofence"), v.literal("offline")),
+        lat: v.number(),
+        lng: v.number(),
+        passengerCount: v.number(),
+        speed: v.number(),
+        details: v.optional(v.string()),
+    }).index("by_vehicleId", ["vehicleId"]),
+
+    // Global system configuration for OTA edge nodes
+    system_configs: defineTable({
+        yoloThreshold: v.number(),
+        saveInferenceImages: v.boolean(),
+    }),
 });

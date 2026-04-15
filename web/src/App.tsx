@@ -20,7 +20,8 @@ import { useConvexAuth } from "convex/react";
 import { useEffect, useMemo, useState } from "react";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { LiveMapAdminView } from "./components/LiveMapAdminView";
-import { SettingsPanel } from "./components/SettingsPanel";
+import { HistoryTab } from "./components/HistoryTab";
+import { SettingsAdminTab } from "./components/SettingsAdminTab";
 import { UserDashboard } from "./components/UserDashboard";
 import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
@@ -115,9 +116,9 @@ function Dashboard() {
                 };
             case "settings":
                 return {
-                    title: "System Settings",
+                    title: "System Configuration",
                     subtitle:
-                        "Configure NEO-6M hardware interfaces and AI model integration parameters.",
+                        "Global hardware and AI pipeline parameters for OTA edge nodes.",
                 };
         }
     }, [activeTab]);
@@ -231,23 +232,14 @@ function Dashboard() {
                         )}
 
                         {activeTab === "history" && (
-                            <div className="rounded-3xl border border-white/10 bg-white/5 p-10 shadow-2xl shadow-black/20 backdrop-blur-xl">
-                                <div className="flex min-h-[420px] flex-col items-center justify-center rounded-2xl border border-dashed border-violet-400/20 bg-gradient-to-br from-violet-500/10 to-fuchsia-500/5 text-center">
-                                    <History className="mb-4 h-12 w-12 text-violet-300" />
-                                    <h3 className="text-xl font-semibold text-white">
-                                        Module Loading...
-                                    </h3>
-                                    <p className="mt-2 max-w-md text-sm text-slate-400">
-                                        Preparing historical route logs, incident reports, and fleet
-                                        performance timelines.
-                                    </p>
-                                </div>
+                            <div className="rounded-3xl border border-white/10 bg-white/5 shadow-2xl shadow-black/20 backdrop-blur-xl overflow-hidden">
+                                <HistoryTab />
                             </div>
                         )}
 
                         {activeTab === "settings" && (
-                            <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-6">
-                                <SettingsPanel />
+                            <div className="rounded-3xl border border-white/10 bg-white/5 shadow-2xl shadow-black/20 backdrop-blur-xl">
+                                <SettingsAdminTab />
                             </div>
                         )}
                     </main>
