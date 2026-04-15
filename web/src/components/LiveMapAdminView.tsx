@@ -100,27 +100,6 @@ const createJeepIcon = () => {
     });
 };
 
-const LANDMARKS = [
-    {
-        name: "Terminal - Bocaue",
-        position: [14.7937, 120.9234] as [number, number],
-    },
-    {
-        name: "Mint Road Stop",
-        position: [14.7950, 120.9250] as [number, number],
-    },
-    {
-        name: "Market Square",
-        position: [14.7915, 120.9210] as [number, number],
-    },
-    {
-        name: "Church Terminal",
-        position: [14.7942, 120.9242] as [number, number],
-    },
-];
-
-const PROXIMITY_RADIUS_METERS = 50;
-
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371000;
     const φ1 = (lat1 * Math.PI) / 180;
@@ -136,10 +115,11 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
     return R * c;
 }
 
-function findNearbyLandmark(lat: number, lng: number): string | null {
-    for (const landmark of LANDMARKS) {
-        const distance = calculateDistance(lat, lng, landmark.position[0], landmark.position[1]);
-        if (distance <= PROXIMITY_RADIUS_METERS) {
+function findNearbyLandmark(lat: number, lng: number, landmarks: any[]): string | null {
+    if (!landmarks || landmarks.length === 0) return null;
+    for (const landmark of landmarks) {
+        const distance = calculateDistance(lat, lng, landmark.lat, landmark.lng);
+        if (distance <= (landmark.radius || 50)) {
             return landmark.name;
         }
     }
@@ -281,7 +261,7 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
     }, [isAddingMode]);
     
     const nearbyLandmark = selectedJeepney 
-        ? findNearbyLandmark(selectedJeepney.latitude, selectedJeepney.longitude)
+        ? findNearbyLandmark(selectedJeepney.latitude, selectedJeepney.longitude, landmarksData || [])
         : null;
     
     return (
@@ -380,33 +360,6 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 
-                {LANDMARKS.map((landmark, index) => (
-                    <Fragment key={`static_${index}`}>
-                        <CircleAny
-                            center={landmark.position}
-                            radius={PROXIMITY_RADIUS_METERS}
-                            pathOptions={{
-                                color: '#6b7280',
-                                fillColor: '#6b7280',
-                                fillOpacity: 0.1,
-                                weight: 1,
-                                dashArray: '5, 5',
-                            }}
-                        />
-                        <MarkerAny
-                            position={landmark.position}
-                            icon={createLandmarkIcon()}
-                        >
-                            <Popup>
-                                <div className="text-center p-1">
-                                    <strong className="text-gray-900 text-sm">{landmark.name}</strong>
-                                    <p className="text-xs text-gray-500 mt-1">Geofence: {PROXIMITY_RADIUS_METERS}m</p>
-                                </div>
-                            </Popup>
-                        </MarkerAny>
-                    </Fragment>
-                ))}
-                
                 {landmarksData && landmarksData.map((landmark: any) => (
                     <Fragment key={landmark._id}>
                         <CircleAny
@@ -428,8 +381,8 @@ export function LiveMapAdminView({ fleetData }: LiveMapAdminViewProps) {
                                     <strong className="text-gray-900 text-sm block">{landmark.name}</strong>
                                     <p className="text-xs text-gray-500 mt-1">Geofence: {landmark.radius}m</p>
                                     <button
-                                        onClick={(e: any) => {
-                                            e.originalEvent.preventDefault();
+                                        onClick={(e) => {
+                                            e.stopPropagation();
                                             handleDeleteLandmark(landmark._id);
                                         }}
                                         className="mt-2 w-full py-1 px-2 bg-red-100 text-red-600 rounded text-xs hover:bg-red-200 flex items-center justify-center gap-1"
