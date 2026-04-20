@@ -23,10 +23,11 @@ import { LiveMapAdminView } from "./components/LiveMapAdminView";
 import { HistoryTab } from "./components/HistoryTab";
 import { SettingsAdminTab } from "./components/SettingsAdminTab";
 import { UserDashboard } from "./components/UserDashboard";
+import { HardwarePanel } from "./components/HardwarePanel";
 import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { LocationProvider } from "./context/LocationContext";
-type TabKey = "overview" | "map" | "history" | "settings";
+type TabKey = "overview" | "map" | "history" | "hardware" | "settings";
 
 export default function App() {
     useEffect(() => {
@@ -91,6 +92,7 @@ function Dashboard() {
         { id: "overview" as const, label: "Overview", icon: LayoutDashboard },
         { id: "map" as const, label: "Live Map", icon: Map },
         { id: "history" as const, label: "History", icon: History },
+        { id: "hardware" as const, label: "Hardware", icon: Cpu },
         { id: "settings" as const, label: "Settings", icon: Settings },
     ];
 
@@ -114,12 +116,20 @@ function Dashboard() {
                     subtitle:
                         "Review operational logs, route traces, and historical system events.",
                 };
+            case "hardware":
+                return {
+                    title: "Hardware & GPS",
+                    subtitle:
+                        "Live GPS readings from Arduino and YOLO people counter events.",
+                };
             case "settings":
                 return {
                     title: "System Configuration",
                     subtitle:
                         "Global hardware and AI pipeline parameters for OTA edge nodes.",
                 };
+            default:
+                return { title: "", subtitle: "" };
         }
     }, [activeTab]);
 
@@ -234,6 +244,12 @@ function Dashboard() {
                         {activeTab === "history" && (
                             <div className="rounded-3xl border border-white/10 bg-white/5 shadow-2xl shadow-black/20 backdrop-blur-xl overflow-hidden">
                                 <HistoryTab />
+                            </div>
+                        )}
+
+                        {activeTab === "hardware" && (
+                            <div className="p-6">
+                                <HardwarePanel />
                             </div>
                         )}
 

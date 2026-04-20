@@ -47,4 +47,24 @@ export default defineSchema({
         yoloThreshold: v.number(),
         saveInferenceImages: v.boolean(),
     }),
+
+    // Raw GPS + hardware readings from Arduino UNO R4 WiFi via Python serial reader
+    hardwareReadings: defineTable({
+        deviceId: v.string(),
+        latitude: v.optional(v.number()),
+        longitude: v.optional(v.number()),
+        satellites: v.optional(v.number()),
+        timestamp: v.string(),
+        source: v.string(),              // "hardware"
+    }).index("by_deviceId", ["deviceId"]),
+
+    // Entry/exit events from YOLO people counter
+    peopleEvents: defineTable({
+        cameraId: v.string(),
+        eventType: v.union(v.literal("entry"), v.literal("exit")),
+        count: v.number(),
+        totalPeople: v.number(),
+        timestamp: v.string(),
+        source: v.string(),              // "people_counter"
+    }).index("by_cameraId", ["cameraId"]),
 });

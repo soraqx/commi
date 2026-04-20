@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const list = query({
@@ -11,7 +11,7 @@ export const list = query({
     },
 });
 
-export const insertLog = mutation({
+export const insertLog = internalMutation({
     args: {
         vehicleId: v.string(),
         eventType: v.union(v.literal("ping"), v.literal("warning"), v.literal("geofence"), v.literal("offline")),
