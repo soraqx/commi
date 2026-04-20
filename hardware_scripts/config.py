@@ -11,7 +11,7 @@ load_dotenv()  # Optional: load from a .env file if you prefer
 # Your Convex HTTP Actions site URL (ends in .convex.site)
 CONVEX_SITE_URL = os.getenv(
     "CONVEX_SITE_URL",
-    "https://optimistic-turtle-928.convex.site"
+    "https://expert-pony-749.convex.site"
 )
 
 # ─── Arduino / Serial ─────────────────────────────────────────────────────────
