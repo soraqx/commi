@@ -1,8 +1,8 @@
 # people_counter.py
-# Two-line counting zone:
-#   GREEN line (left)  → crossing left-to-right = ENTRY
-#   RED   line (right) → crossing right-to-left = EXIT
-#   Buffer zone between the two lines prevents double-counting.
+# Two horizontal half-lines with a gap in the middle:
+#   LEFT  side → GREEN line  → "Entrance" (crossing up→down = ENTRY)
+#   RIGHT side → RED   line  → "Exit"     (crossing up→down = EXIT)
+#   Middle gap = no counting zone
 
 import cv2
 import time
@@ -15,10 +15,10 @@ from ultralytics import YOLO
 from config import MODEL_PATH, CAMERA_INDEX, CAMERA_ID, YOLO_CONFIDENCE, SHOW_DETECTION_WINDOW, YOLO_DEVICE
 from convex_sender import send_people_event
 
-# ─── Two-line zone configuration ─────────────────────────────────────────────
-# Fractions of frame WIDTH.  Adjust if your door is off-centre.
-ENTRY_LINE_X = 0.38   # green line — left boundary
-EXIT_LINE_X  = 0.62   # red   line — right boundary
+# ─── Layout config ────────────────────────────────────────────────────────────
+LINE_Y        = 0.50   # vertical position of both lines (fraction of frame height)
+LEFT_END_X    = 0.38   # green line spans from 0%  → 38% of frame width
+RIGHT_START_X = 0.62   # red   line spans from 62% → 100% of frame width
 
 
 def get_timestamp() -> str:
@@ -26,7 +26,7 @@ def get_timestamp() -> str:
 
 
 def run():
-    # ── Device selection ──────────────────────────────────────────────────────
+    # ── Device ────────────────────────────────────────────────────────────────
     device = YOLO_DEVICE if (YOLO_DEVICE == "cpu" or torch.cuda.is_available()) else "cpu"
     if YOLO_DEVICE == "cuda" and not torch.cuda.is_available():
         print("[people_counter] WARNING: CUDA not available, falling back to CPU.")
@@ -50,11 +50,8 @@ def run():
         print(f"[people_counter] Cannot open camera {CAMERA_INDEX}")
         return
 
-    total_people = 0
-    # track_id → list of cx values (horizontal position history)
-    track_history = defaultdict(list)
-    # track_id → last confirmed zone: "left" | "middle" | "right"
-    track_zone    = {}
+    total_people  = 0
+    track_history = defaultdict(list)   # track_id → [prev_cy, curr_cy]
 
     print("[people_counter] Running. Press Q to stop.")
 
@@ -66,8 +63,11 @@ def run():
                 continue
 
             frame_h, frame_w = frame.shape[:2]
-            entry_x = int(frame_w * ENTRY_LINE_X)   # green line x
-            exit_x  = int(frame_w * EXIT_LINE_X)    # red   line x
+
+            # Pixel coordinates
+            line_y       = int(frame_h * LINE_Y)
+            left_end     = int(frame_w * LEFT_END_X)
+            right_start  = int(frame_w * RIGHT_START_X)
 
             # ── YOLO tracking ─────────────────────────────────────────────────
             results = model.track(
@@ -89,81 +89,82 @@ def run():
                     cx = int((x1 + x2) / 2)
                     cy = int((y1 + y2) / 2)
 
-                    # ── Determine current zone ─────────────────────────────────
-                    if cx < entry_x:
-                        zone = "left"
-                    elif cx > exit_x:
-                        zone = "right"
-                    else:
-                        zone = "middle"
-
-                    prev_zone = track_zone.get(track_id)
-                    track_zone[track_id] = zone
+                    history = track_history[track_id]
+                    history.append(cy)
+                    if len(history) > 2:
+                        history.pop(0)
 
                     # ── Crossing detection ────────────────────────────────────
-                    # ENTRY: moved from left → crossed green line → now in middle or right
-                    if prev_zone == "left" and zone in ("middle", "right"):
-                        total_people += 1
-                        print(f"[people_counter] ENTRY | ID {track_id} | total={total_people}")
-                        send_people_event(
-                            camera_id=CAMERA_ID,
-                            event_type="entry",
-                            count=1,
-                            total_people=total_people,
-                            timestamp=get_timestamp(),
-                        )
+                    if len(history) == 2:
+                        prev_cy, curr_cy = history[0], history[1]
 
-                    # EXIT: moved from right → crossed red line → now in middle or left
-                    elif prev_zone == "right" and zone in ("middle", "left"):
-                        total_people = max(0, total_people - 1)
-                        print(f"[people_counter] EXIT  | ID {track_id} | total={total_people}")
-                        send_people_event(
-                            camera_id=CAMERA_ID,
-                            event_type="exit",
-                            count=1,
-                            total_people=total_people,
-                            timestamp=get_timestamp(),
-                        )
+                        # Person is on the LEFT (entrance) side
+                        if cx <= left_end:
+                            if prev_cy < line_y <= curr_cy:   # crossed downward
+                                total_people += 1
+                                print(f"[people_counter] ENTRY | ID {track_id} | total={total_people}")
+                                send_people_event(
+                                    camera_id=CAMERA_ID,
+                                    event_type="entry",
+                                    count=1,
+                                    total_people=total_people,
+                                    timestamp=get_timestamp(),
+                                )
 
-                    # ── Draw overlays ─────────────────────────────────────────
+                        # Person is on the RIGHT (exit) side
+                        elif cx >= right_start:
+                            if prev_cy < line_y <= curr_cy:   # crossed downward
+                                total_people = max(0, total_people - 1)
+                                print(f"[people_counter] EXIT  | ID {track_id} | total={total_people}")
+                                send_people_event(
+                                    camera_id=CAMERA_ID,
+                                    event_type="exit",
+                                    count=1,
+                                    total_people=total_people,
+                                    timestamp=get_timestamp(),
+                                )
+
+                    # ── Per-person overlay ────────────────────────────────────
                     if SHOW_DETECTION_WINDOW:
-                        # Bounding box — green for entry side, red for exit side
-                        box_color = (0, 255, 0) if zone != "right" else (0, 0, 255)
+                        # Box color based on which side the person is on
+                        if cx <= left_end:
+                            color = (0, 255, 0)      # green — entrance side
+                        elif cx >= right_start:
+                            color = (0, 0, 255)      # red   — exit side
+                        else:
+                            color = (200, 200, 200)  # grey  — middle gap
+
                         cv2.rectangle(frame,
                                       (int(x1), int(y1)), (int(x2), int(y2)),
-                                      box_color, 2)
+                                      color, 2)
 
-                        # ID label above the box
+                        # ID label
                         cv2.putText(frame, f"ID {track_id}",
                                     (int(x1), int(y1) - 8),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, box_color, 2)
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2)
 
-                        # Large filled dot at person centre
-                        dot_color = (0, 255, 0) if zone == "left" else \
-                                    (0, 0, 255) if zone == "right" else \
-                                    (0, 220, 255)   # yellow-ish for middle zone
-                        cv2.circle(frame, (cx, cy), 10, dot_color, -1)
-                        cv2.circle(frame, (cx, cy),  10, (255, 255, 255), 2)  # white ring
+                        # Dot at person centre
+                        cv2.circle(frame, (cx, cy), 10, color, -1)
+                        cv2.circle(frame, (cx, cy), 10, (255, 255, 255), 2)
 
-            # ── Draw the two counting lines and HUD ───────────────────────────
+            # ── Draw the two half-lines and labels ────────────────────────────
             if SHOW_DETECTION_WINDOW:
-                # Green entry line (left)
-                cv2.line(frame, (entry_x, 0), (entry_x, frame_h), (0, 255, 0), 2)
-                cv2.putText(frame, "ENTRY", (entry_x + 6, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                # Green line — left half (Entrance)
+                cv2.line(frame, (0, line_y), (left_end, line_y), (0, 200, 0), 3)
 
-                # Red exit line (right)
-                cv2.line(frame, (exit_x, 0), (exit_x, frame_h), (0, 0, 255), 2)
-                cv2.putText(frame, "EXIT", (exit_x + 6, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                # Red line — right half (Exit)
+                cv2.line(frame, (right_start, line_y), (frame_w, line_y), (0, 0, 220), 3)
 
-                # Semi-transparent buffer zone between the two lines
-                overlay = frame.copy()
-                cv2.rectangle(overlay, (entry_x, 0), (exit_x, frame_h),
-                              (200, 200, 200), -1)
-                cv2.addWeighted(overlay, 0.12, frame, 0.88, 0, frame)
+                # Labels above the lines
+                cv2.putText(frame, "Entrance",
+                            (20, line_y - 12),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 200, 0), 2)
 
-                # People counter HUD (top-left)
+                cv2.putText(frame, "Exit",
+                            (right_start + 20, line_y - 12),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 220), 2)
+
+                # People count — bottom left
                 cv2.putText(frame, f"People inside: {total_people}",
                             (10, frame_h - 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
