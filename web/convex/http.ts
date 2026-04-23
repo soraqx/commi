@@ -2,7 +2,6 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { Webhook } from "svix";
-
 const http = httpRouter();
 
 // ─── Telemetry log ingestion (existing) ───────────────────────────────────────
@@ -114,7 +113,6 @@ http.route({
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   }),
 });
-
 // ─── Clerk webhook for user sync ───────────────────────────────────────────────
 http.route({
   path: "/clerk",
@@ -152,6 +150,4 @@ http.route({
     return new Response("Success", { status: 200 });
   }),
 });
-
 export default http;
-
