@@ -27,6 +27,8 @@ import { HardwarePanel } from "./components/HardwarePanel";
 import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 import { LocationProvider } from "./context/LocationContext";
+import { Routes, Route, Navigate } from "react-router-dom";
+
 type TabKey = "overview" | "map" | "history" | "hardware" | "settings";
 
 export default function App() {
@@ -57,30 +59,85 @@ export default function App() {
                 </SignedOut>
 
                 <SignedIn>
-                    <RoleBasedRouter />
+                    <AuthenticatedRoutes />
                 </SignedIn>
             </LocationProvider>
         </main>
     );
 }
 
-function RoleBasedRouter() {
-    const { user } = useUser();
-    const role = user?.publicMetadata?.role as string | undefined;
+function AuthenticatedRoutes() {
+    const { isLoaded, user } = useUser();
 
-    if (role === "admin") {
-        return <Dashboard />;
+    if (!isLoaded) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6">
+                <div className="rounded-2xl border border-white/10 bg-white/10 px-6 py-4 text-sm text-slate-200 backdrop-blur-xl">
+                    Loading user data...
+                </div>
+            </div>
+        );
     }
 
-    return <UserDashboard />;
+    const role = user?.publicMetadata?.role as string | undefined;
+    const isAdmin = role === "admin";
+
+    return (
+        <Routes>
+            <Route path="/" element={isAdmin ? <Navigate to="/admin/overview" replace /> : <Navigate to="/overview" replace />} />
+            
+            {/* Admin routes */}
+            <Route path="/admin/*" element={isAdmin ? <AdminLayout /> : <Navigate to="/overview" replace />} />
+            
+            {/* Passenger routes */}
+            <Route path="/overview" element={!isAdmin ? <UserDashboard /> : <Navigate to="/admin/overview" replace />} />
+            
+            {/* Fallback */}
+            <Route path="*" element={isAdmin ? <Navigate to="/admin/overview" replace /> : <Navigate to="/overview" replace />} />
+        </Routes>
+    );
 }
 
-function Dashboard() {
+function AdminLayout() {
+    return (
+        <Routes>
+            <Route path="overview" element={<Dashboard />} />
+            <Route path="map" element={<Dashboard initialTab="map" />} />
+            <Route path="history" element={<Dashboard initialTab="history" />} />
+            <Route path="hardware" element={<Dashboard initialTab="hardware" />} />
+            <Route path="settings" element={<SettingsRoute />} />
+            <Route index element={<Navigate to="overview" replace />} />
+        </Routes>
+    );
+}
+
+function SettingsRoute() {
+    const { isLoaded, user } = useUser();
+
+    if (!isLoaded) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6">
+                <div className="rounded-2xl border border-white/10 bg-white/10 px-6 py-4 text-sm text-slate-200 backdrop-blur-xl">
+                    Loading user data...
+                </div>
+            </div>
+        );
+    }
+
+    const role = user?.publicMetadata?.role as string | undefined;
+    if (role !== "admin") {
+        return <Navigate to="/overview" replace />;
+    }
+
+    return <Dashboard initialTab="settings" />;
+}
+
+function Dashboard({ initialTab }: { initialTab?: TabKey }) {
     const { isAuthenticated } = useConvexAuth();
     const storeUser = useMutation(api.users.storeUser);
     const fleetData = useQuery(api.fleet.getFleetStatus);
 
-    const [activeTab, setActiveTab] = useState<TabKey>("overview");
+    const [activeTab, setActiveTab] = useState<TabKey>(initialTab || "overview");
 
     useEffect(() => {
         if (isAuthenticated) {
