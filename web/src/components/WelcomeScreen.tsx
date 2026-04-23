@@ -10,6 +10,7 @@ function SignInForm({ onBack }: { onBack: () => void }) {
     const { setActive } = useClerk();
     const [email, setEmail] = useState("");
     const [code, setCode] = useState("");
+    const [pendingVerification, setPendingVerification] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
@@ -26,7 +27,7 @@ function SignInForm({ onBack }: { onBack: () => void }) {
                 identifier: email,
                 strategy: "email_code",
             });
-            setIsVerifying(true);
+            setPendingVerification(true);
         } catch (err: any) {
             setError(err.errors?.[0]?.message || "Failed to send code. Please try again.");
         } finally {
@@ -36,26 +37,38 @@ function SignInForm({ onBack }: { onBack: () => void }) {
 
     const handleVerifyCode = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!signInLoaded || loading) return;
+        if (!signInLoaded || isVerifying) return;
 
         setError("");
-        setLoading(true);
+        setIsVerifying(true);
+        console.log("AUTH TRACE: 1. Starting Verification");
 
         try {
+            if (!signInLoaded) return;
+
+            console.log("AUTH TRACE: 2. Sending Code to Clerk");
             const result = await signIn.attemptFirstFactor({
                 strategy: "email_code",
                 code,
             });
 
+            console.log("AUTH TRACE: 3. Clerk Response Received", result.status);
+
             if (result.status === "complete") {
+                console.log("AUTH TRACE: 4. Setting Active Session");
                 await setActive({ session: result.createdSessionId });
+
+                console.log("AUTH TRACE: 5. Session Active! Clerk will auto-render SignedIn view...");
             } else {
+                console.error("AUTH TRACE: Missing Requirements", result);
                 setError("Verification failed. Please try again.");
             }
         } catch (err: any) {
-            setError(err.errors?.[0]?.message || "Invalid code. Please try again.");
+            console.error("AUTH TRACE: ❌ Caught Error:", JSON.stringify(err.errors, null, 2));
+            setError(err.errors?.[0]?.longMessage || err.errors?.[0]?.message || "Invalid code. Please try again.");
         } finally {
-            setLoading(false);
+            console.log("AUTH TRACE: 6. Finally block reached. Unlocking button.");
+            setIsVerifying(false);
         }
     };
 
@@ -86,7 +99,7 @@ function SignInForm({ onBack }: { onBack: () => void }) {
             <div className="text-center">
                 <h2 className="text-2xl font-bold text-gray-900">Welcome Back</h2>
                 <p className="mt-1 text-gray-500">
-                    {isVerifying ? "Enter the code sent to your email" : "Sign in to your account"}
+                    {pendingVerification ? "Enter the code sent to your email" : "Sign in to your account"}
                 </p>
             </div>
 
@@ -96,7 +109,7 @@ function SignInForm({ onBack }: { onBack: () => void }) {
                 </div>
             )}
 
-            {!Capacitor.isNativePlatform() && !isVerifying && (
+            {!Capacitor.isNativePlatform() && !pendingVerification && (
                 <>
                     <button
                         onClick={handleGoogleLogin}
@@ -120,7 +133,7 @@ function SignInForm({ onBack }: { onBack: () => void }) {
                 </>
             )}
 
-            {!isVerifying ? (
+            {!pendingVerification ? (
                 <form onSubmit={handleSendCode} className="space-y-4">
                     <div>
                         <label htmlFor="signin-email" className="block text-sm font-medium text-gray-700">
@@ -172,10 +185,10 @@ function SignInForm({ onBack }: { onBack: () => void }) {
 
                     <button
                         type="submit"
-                        disabled={loading}
+                        disabled={isVerifying}
                         className="w-full rounded-full bg-cyan-400 px-8 py-3 font-bold text-gray-800 shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
                     >
-                        {loading ? (
+                        {isVerifying ? (
                             <span className="flex items-center justify-center gap-2">
                                 <Loader2 className="h-5 w-5 animate-spin" />
                                 Verifying...
@@ -188,7 +201,7 @@ function SignInForm({ onBack }: { onBack: () => void }) {
                     <button
                         type="button"
                         onClick={() => {
-                            setIsVerifying(false);
+                            setPendingVerification(false);
                             setCode("");
                             setError("");
                         }}
@@ -207,6 +220,7 @@ function SignUpForm({ onBack }: { onBack: () => void }) {
     const { setActive } = useClerk();
     const [email, setEmail] = useState("");
     const [code, setCode] = useState("");
+    const [pendingVerification, setPendingVerification] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
@@ -225,7 +239,7 @@ function SignUpForm({ onBack }: { onBack: () => void }) {
             await signUp.prepareEmailAddressVerification({
                 strategy: "email_code",
             });
-            setIsVerifying(true);
+            setPendingVerification(true);
         } catch (err: any) {
             setError(err.errors?.[0]?.message || "Failed to send code. Please try again.");
         } finally {
@@ -235,25 +249,37 @@ function SignUpForm({ onBack }: { onBack: () => void }) {
 
     const handleVerifyCode = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!signUpLoaded || loading) return;
+        if (!signUpLoaded || isVerifying) return;
 
         setError("");
-        setLoading(true);
+        setIsVerifying(true);
+        console.log("AUTH TRACE: 1. Starting Verification");
 
         try {
-            const result = await signUp.attemptEmailAddressVerification({
+            if (!signUpLoaded) return;
+
+            console.log("AUTH TRACE: 2. Sending Code to Clerk");
+            const completeSignUp = await signUp.attemptEmailAddressVerification({
                 code,
             });
 
-            if (result.status === "complete") {
-                await setActive({ session: result.createdSessionId });
+            console.log("AUTH TRACE: 3. Clerk Response Received", completeSignUp.status);
+
+            if (completeSignUp.status === "complete") {
+                console.log("AUTH TRACE: 4. Setting Active Session");
+                await setActive({ session: completeSignUp.createdSessionId });
+
+                console.log("AUTH TRACE: 5. Session Active! Clerk will auto-render SignedIn view...");
             } else {
+                console.error("AUTH TRACE: Missing Requirements", completeSignUp);
                 setError("Verification failed. Please try again.");
             }
         } catch (err: any) {
-            setError(err.errors?.[0]?.message || "Invalid code. Please try again.");
+            console.error("AUTH TRACE: ❌ Caught Error:", JSON.stringify(err.errors, null, 2));
+            setError(err.errors?.[0]?.longMessage || err.errors?.[0]?.message || "Invalid code. Please try again.");
         } finally {
-            setLoading(false);
+            console.log("AUTH TRACE: 6. Finally block reached. Unlocking button.");
+            setIsVerifying(false);
         }
     };
 
@@ -284,7 +310,7 @@ function SignUpForm({ onBack }: { onBack: () => void }) {
             <div className="text-center">
                 <h2 className="text-2xl font-bold text-gray-900">Create Account</h2>
                 <p className="mt-1 text-gray-500">
-                    {isVerifying ? "Enter the code sent to your email" : "Join Chatcommiot"}
+                    {pendingVerification ? "Enter the code sent to your email" : "Join Chatcommiot"}
                 </p>
             </div>
 
@@ -294,7 +320,7 @@ function SignUpForm({ onBack }: { onBack: () => void }) {
                 </div>
             )}
 
-            {!Capacitor.isNativePlatform() && !isVerifying && (
+            {!Capacitor.isNativePlatform() && !pendingVerification && (
                 <>
                     <button
                         onClick={handleGoogleSignUp}
@@ -318,7 +344,7 @@ function SignUpForm({ onBack }: { onBack: () => void }) {
                 </>
             )}
 
-            {!isVerifying ? (
+            {!pendingVerification ? (
                 <form onSubmit={handleSendCode} className="space-y-4">
                     <div>
                         <label htmlFor="signup-email" className="block text-sm font-medium text-gray-700">
@@ -370,10 +396,10 @@ function SignUpForm({ onBack }: { onBack: () => void }) {
 
                     <button
                         type="submit"
-                        disabled={loading}
+                        disabled={isVerifying}
                         className="w-full rounded-full bg-cyan-400 px-8 py-3 font-bold text-gray-800 shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
                     >
-                        {loading ? (
+                        {isVerifying ? (
                             <span className="flex items-center justify-center gap-2">
                                 <Loader2 className="h-5 w-5 animate-spin" />
                                 Verifying...
@@ -386,7 +412,7 @@ function SignUpForm({ onBack }: { onBack: () => void }) {
                     <button
                         type="button"
                         onClick={() => {
-                            setIsVerifying(false);
+                            setPendingVerification(false);
                             setCode("");
                             setError("");
                         }}

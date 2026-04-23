@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";
+import { Webhook } from "svix";
 
 const http = httpRouter();
 
@@ -114,4 +115,43 @@ http.route({
   }),
 });
 
+// ─── Clerk webhook for user sync ───────────────────────────────────────────────
+http.route({
+  path: "/clerk",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const payload = await request.text();
+    const svixId = request.headers.get("svix-id");
+    const svixTimestamp = request.headers.get("svix-timestamp");
+    const svixSignature = request.headers.get("svix-signature");
+
+    if (!svixId || !svixTimestamp || !svixSignature) {
+      return new Response("Missing Svix headers", { status: 400 });
+    }
+
+    const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET || "");
+    let evt;
+    try {
+      evt = wh.verify(payload, {
+        "svix-id": svixId,
+        "svix-timestamp": svixTimestamp,
+        "svix-signature": svixSignature,
+      }) as any;
+    } catch (err) {
+      return new Response("Verification failed", { status: 400 });
+    }
+
+    if (evt.type === "user.created" || evt.type === "user.updated") {
+      const clerkId = evt.data.id;
+      const email = evt.data.email_addresses?.[0]?.email_address;
+      if (email) {
+        await ctx.runMutation(internal.users.upsertUser, { clerkId, email });
+      }
+    }
+
+    return new Response("Success", { status: 200 });
+  }),
+});
+
 export default http;
+

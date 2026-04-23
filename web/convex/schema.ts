@@ -19,10 +19,10 @@ export default defineSchema({
     // This stores the Clerk user roles so Convex can read them lightning-fast
     users: defineTable({
         clerkId: v.string(),
-        role: v.union(v.literal("admin"), v.literal("user")),
         email: v.string(),
-    }).index("by_clerkId", ["clerkId"]),
-    
+        role: v.union(v.literal("admin"), v.literal("user")),
+    }).index("by_clerk_id", ["clerkId"]),
+
     // Landmarks table for persistent geofence locations
     landmarks: defineTable({
         name: v.string(),
