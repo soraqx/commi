@@ -3,6 +3,7 @@ import { MapPin, Bell, Shield, LogOut, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { triggerHaptic, setHapticEnabled as setGlobalHaptic } from "../utils/haptics";
 import { useLocation } from "../context/LocationContext";
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 interface UserProfileViewProps {
     onHapticSettingChange?: (enabled: boolean) => void;
@@ -36,6 +37,13 @@ export function UserProfileView({ onHapticSettingChange }: UserProfileViewProps)
 
         if (enabled) {
             triggerHaptic();
+        }
+    };
+
+    const testVibration = async () => {
+        if (vibrateEnabled) {
+            await Haptics.impact({ style: ImpactStyle.Heavy });
+            // Alternatively, for a longer buzz: await Haptics.vibrate({ duration: 500 });
         }
     };
 
@@ -116,27 +124,34 @@ export function UserProfileView({ onHapticSettingChange }: UserProfileViewProps)
                         </label>
                     </div>
 
-                    {/* Vibration Toggle */}
-                    <div className="flex items-center justify-between p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100">
-                                <Bell className="h-5 w-5 text-purple-600" />
-                            </div>
-                            <div>
-                                <p className="font-medium text-gray-900">Vibration Alerts</p>
-                                <p className="text-sm text-gray-500">Haptic feedback</p>
-                            </div>
-                        </div>
-                        <label className="relative inline-flex cursor-pointer items-center">
-                            <input
-                                type="checkbox"
-                                checked={vibrateEnabled}
-                                onChange={(e) => handleToggleVibrate(e.target.checked)}
-                                className="peer sr-only"
-                            />
-                            <div className="peer h-7 w-12 rounded-full bg-gray-200 after:absolute after:left-[3px] after:top-[3px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-300" />
-                        </label>
-                    </div>
+                     {/* Vibration Toggle */}
+                     <div className="flex items-center justify-between p-4">
+                         <div className="flex items-center gap-3">
+                             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100">
+                                 <Bell className="h-5 w-5 text-purple-600" />
+                             </div>
+                             <div>
+                                 <p className="font-medium text-gray-900">Vibration Alerts</p>
+                                 <p className="text-sm text-gray-500">Haptic feedback</p>
+                             </div>
+                         </div>
+                         <label className="relative inline-flex cursor-pointer items-center">
+                             <input
+                                 type="checkbox"
+                                 checked={vibrateEnabled}
+                                 onChange={(e) => handleToggleVibrate(e.target.checked)}
+                                 className="peer sr-only"
+                             />
+                             <div className="peer h-7 w-12 rounded-full bg-gray-200 after:absolute after:left-[3px] after:top-[3px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-300" />
+                         </label>
+                     </div>
+                     
+                     {/* Test Vibration Button */}
+                     {vibrateEnabled && (
+                         <button onClick={testVibration} className="w-full mt-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors">
+                             Test Vibration
+                         </button>
+                     )}
                 </div>
             </div>
 
