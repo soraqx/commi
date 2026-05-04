@@ -1,8 +1,7 @@
 # people_counter.py
-# Two horizontal half-lines with a gap in the middle:
-#   LEFT  side → GREEN line  → "Entrance" (crossing up→down = ENTRY)
-#   RIGHT side → RED   line  → "Exit"     (crossing up→down = EXIT)
-#   Middle gap = no counting zone
+# Single full-width counting line:
+#   Person crosses line with FACE visible → ENTRY
+#   Person crosses line with BACK visible → EXIT
 
 import cv2
 import time
@@ -16,13 +15,35 @@ from config import MODEL_PATH, CAMERA_INDEX, CAMERA_ID, YOLO_CONFIDENCE, SHOW_DE
 from convex_sender import send_people_event
 
 # ─── Layout config ────────────────────────────────────────────────────────────
-LINE_Y        = 0.50   # vertical position of both lines (fraction of frame height)
-LEFT_END_X    = 0.38   # green line spans from 0%  → 38% of frame width
-RIGHT_START_X = 0.62   # red   line spans from 62% → 100% of frame width
+LINE_Y = 0.50   # vertical position of the counting line (0.0 = top, 1.0 = bottom)
+
+# ─── Face detector (built into OpenCV, no extra install needed) ───────────────
+_face_cascade = cv2.CascadeClassifier(
+    cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+)
 
 
 def get_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _face_visible(frame, x1: float, y1: float, x2: float, y2: float) -> bool:
+    """Returns True if a frontal face is detected inside the person's bounding box."""
+    ix1 = max(0, int(x1))
+    iy1 = max(0, int(y1))
+    ix2 = max(0, int(x2))
+    iy2 = max(0, int(y2))
+    crop = frame[iy1:iy2, ix1:ix2]
+    if crop.size == 0:
+        return False
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+    faces = _face_cascade.detectMultiScale(
+        gray,
+        scaleFactor=1.1,
+        minNeighbors=3,
+        minSize=(30, 30),
+    )
+    return len(faces) > 0
 
 
 def run():
@@ -51,7 +72,8 @@ def run():
         return
 
     total_people  = 0
-    track_history = defaultdict(list)   # track_id → [prev_cy, curr_cy]
+    track_history = defaultdict(list)
+    counted_ids   = {}   # track_id → last event ("entry"/"exit"), prevents double-count
 
     print("[people_counter] Running. Press Q to stop.")
 
@@ -63,11 +85,7 @@ def run():
                 continue
 
             frame_h, frame_w = frame.shape[:2]
-
-            # Pixel coordinates
-            line_y       = int(frame_h * LINE_Y)
-            left_end     = int(frame_w * LEFT_END_X)
-            right_start  = int(frame_w * RIGHT_START_X)
+            line_y = int(frame_h * LINE_Y)
 
             # ── YOLO tracking ─────────────────────────────────────────────────
             results = model.track(
@@ -97,12 +115,17 @@ def run():
                     # ── Crossing detection ────────────────────────────────────
                     if len(history) == 2:
                         prev_cy, curr_cy = history[0], history[1]
+                        crossed = prev_cy < line_y <= curr_cy or prev_cy > line_y >= curr_cy
 
-                        # Person is on the LEFT (entrance) side
-                        if cx <= left_end:
-                            if prev_cy < line_y <= curr_cy:   # crossed downward
+                        if crossed:
+                            face = _face_visible(frame, x1, y1, x2, y2)
+                            last = counted_ids.get(track_id)
+
+                            if face and last != "entry":
+                                # Face visible — person is boarding facing forward
                                 total_people += 1
-                                print(f"[people_counter] ENTRY | ID {track_id} | total={total_people}")
+                                counted_ids[track_id] = "entry"
+                                print(f"[people_counter] ENTRY (face) | ID {track_id} | total={total_people}")
                                 send_people_event(
                                     camera_id=CAMERA_ID,
                                     event_type="entry",
@@ -111,11 +134,11 @@ def run():
                                     timestamp=get_timestamp(),
                                 )
 
-                        # Person is on the RIGHT (exit) side
-                        elif cx >= right_start:
-                            if prev_cy < line_y <= curr_cy:   # crossed downward
+                            elif not face and last != "exit":
+                                # No face — back of person, person is alighting
                                 total_people = max(0, total_people - 1)
-                                print(f"[people_counter] EXIT  | ID {track_id} | total={total_people}")
+                                counted_ids[track_id] = "exit"
+                                print(f"[people_counter] EXIT  (back) | ID {track_id} | total={total_people}")
                                 send_people_event(
                                     camera_id=CAMERA_ID,
                                     event_type="exit",
@@ -126,45 +149,26 @@ def run():
 
                     # ── Per-person overlay ────────────────────────────────────
                     if SHOW_DETECTION_WINDOW:
-                        # Box color based on which side the person is on
-                        if cx <= left_end:
-                            color = (0, 255, 0)      # green — entrance side
-                        elif cx >= right_start:
-                            color = (0, 0, 255)      # red   — exit side
-                        else:
-                            color = (200, 200, 200)  # grey  — middle gap
+                        face_now = _face_visible(frame, x1, y1, x2, y2)
+                        color = (0, 255, 0) if face_now else (0, 0, 255)  # green=face, red=back
 
-                        cv2.rectangle(frame,
-                                      (int(x1), int(y1)), (int(x2), int(y2)),
-                                      color, 2)
-
-                        # ID label
-                        cv2.putText(frame, f"ID {track_id}",
+                        cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
+                        label = f"ID {track_id} {'[face]' if face_now else '[back]'}"
+                        cv2.putText(frame, label,
                                     (int(x1), int(y1) - 8),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2)
-
-                        # Dot at person centre
                         cv2.circle(frame, (cx, cy), 10, color, -1)
                         cv2.circle(frame, (cx, cy), 10, (255, 255, 255), 2)
 
-            # ── Draw the two half-lines and labels ────────────────────────────
+            # ── Draw the counting line and labels ─────────────────────────────
             if SHOW_DETECTION_WINDOW:
-                # Green line — left half (Entrance)
-                cv2.line(frame, (0, line_y), (left_end, line_y), (0, 200, 0), 3)
+                # Single white line across full width
+                cv2.line(frame, (0, line_y), (frame_w, line_y), (255, 255, 255), 3)
 
-                # Red line — right half (Exit)
-                cv2.line(frame, (right_start, line_y), (frame_w, line_y), (0, 0, 220), 3)
-
-                # Labels above the lines
-                cv2.putText(frame, "Entrance",
+                cv2.putText(frame, "face = Entry  |  back = Exit",
                             (20, line_y - 12),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 200, 0), 2)
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
 
-                cv2.putText(frame, "Exit",
-                            (right_start + 20, line_y - 12),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 220), 2)
-
-                # People count — bottom left
                 cv2.putText(frame, f"People inside: {total_people}",
                             (10, frame_h - 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
