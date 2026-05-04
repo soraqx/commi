@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
-import { Geolocation } from "@capacitor/geolocation";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
+import { Geolocation, Position } from "@capacitor/geolocation";
 
 interface LocationState {
     latitude: number | null;
@@ -9,8 +9,8 @@ interface LocationState {
 
 interface LocationContextType {
     location: LocationState;
-    requestLocation: () => Promise<boolean>;
-    clearLocation: () => void;
+    startTracking: () => Promise<void>;
+    stopTracking: () => Promise<void>;
 }
 
 const defaultLocation: LocationState = {
@@ -23,46 +23,78 @@ const LocationContext = createContext<LocationContextType | undefined>(undefined
 
 export function LocationProvider({ children }: { children: ReactNode }) {
     const [location, setLocation] = useState<LocationState>(defaultLocation);
+    const watchIdRef = useRef<string | null>(null);
 
-    const requestLocation = useCallback(async (): Promise<boolean> => {
+    const startTracking = useCallback(async () => {
         try {
+            // Check permissions first
             const permissionStatus = await Geolocation.checkPermissions();
 
             if (permissionStatus.location === "prompt" || permissionStatus.location === "denied") {
                 const requestResult = await Geolocation.requestPermissions();
                 if (requestResult.location !== "granted") {
-                    return false;
+                    throw new Error("Location permission not granted");
                 }
             }
 
             if (permissionStatus.location === "denied") {
-                return false;
+                throw new Error("Location permission denied");
             }
 
-            const position = await Geolocation.getCurrentPosition();
-            const { latitude, longitude } = position.coords;
-
-            console.log(`User Location: ${latitude}, ${longitude}`);
-
-            setLocation({
-                latitude,
-                longitude,
-                isAvailable: true,
-            });
-
-            return true;
+            // Start watching position
+            const id = await Geolocation.watchPosition(
+                { enableHighAccuracy: true, maximumAge: 0 },
+                (position, err) => {
+                    if (err) {
+                        console.error("Error watching position:", err);
+                        return;
+                    }
+                    
+                    if (position) {
+                        // Update local state so the map marker moves!
+                        setLocation({
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            isAvailable: true,
+                        });
+                        // Optional: Log for debugging
+                        console.log(`Location updated: ${position.coords.latitude}, ${position.coords.longitude}`);
+                    }
+                }
+            );
+            
+            watchIdRef.current = id;
+            console.log("Started location tracking with watchId:", id);
         } catch (error) {
-            console.error("Failed to get location:", error);
-            return false;
+            console.error("Failed to start location tracking:", error);
+            throw error;
         }
     }, []);
 
-    const clearLocation = useCallback(() => {
-        setLocation(defaultLocation);
+    const stopTracking = useCallback(async () => {
+        if (watchIdRef.current) {
+            try {
+                await Geolocation.clearWatch({ id: watchIdRef.current });
+                console.log("Stopped location tracking with watchId:", watchIdRef.current);
+            } catch (error) {
+                console.error("Failed to clear watch:", error);
+            } finally {
+                watchIdRef.current = null;
+                // Optionally reset location when stopping tracking
+                // setLocation(defaultLocation);
+            }
+        }
     }, []);
 
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            stopTracking().catch(console.error);
+        };
+    }, [stopTracking]);
+
     return (
-        <LocationContext.Provider value={{ location, requestLocation, clearLocation }}>
+        <LocationContext.Provider value={{ location, startTracking, stopTracking }}>
             {children}
         </LocationContext.Provider>
     );

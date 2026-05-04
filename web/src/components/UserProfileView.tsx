@@ -10,7 +10,7 @@ interface UserProfileViewProps {
 
 export function UserProfileView({ onHapticSettingChange }: UserProfileViewProps) {
     const { user } = useUser();
-    const { location, requestLocation, clearLocation } = useLocation();
+    const { location, startTracking, stopTracking } = useLocation();
     const [vibrateEnabled, setVibrateEnabled] = useState<boolean>(false);
     const [locationEnabled, setLocationEnabled] = useState<boolean>(false);
 
@@ -43,14 +43,16 @@ export function UserProfileView({ onHapticSettingChange }: UserProfileViewProps)
         triggerHaptic();
 
         if (checked) {
-            const success = await requestLocation();
-            if (!success) {
+            try {
+                await startTracking();
+                setLocationEnabled(true);
+            } catch (error) {
+                console.error("Failed to start location tracking:", error);
                 setLocationEnabled(false);
                 return;
             }
-            setLocationEnabled(true);
         } else {
-            clearLocation();
+            await stopTracking();
             setLocationEnabled(false);
         }
     };
