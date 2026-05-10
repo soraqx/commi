@@ -8,6 +8,7 @@ import { Navigation } from "lucide-react";
 import { VehicleBottomSheet } from "./VehicleBottomSheet";
 import { triggerHaptic } from "../utils/haptics";
 import { useLocation } from "../context/LocationContext";
+import { useGeofenceAlert } from "../hooks/useGeofenceAlert";
 
 function getDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371000;
@@ -195,7 +196,7 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
     const [showBottomSheet, setShowBottomSheet] = useState(false);
     const [_mapReady, setMapReady] = useState(false);
     const [arrivalNotification, setArrivalNotification] = useState<string | null>(null);
-    
+
     const landmarksData = useQuery(api.landmarks.list);
     const occupiedLandmarks = useRef<Set<string>>(new Set());
 
@@ -236,6 +237,30 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
                     longitude: 120.922,
                 },
             ];
+
+    // Convert userLocation to object format for geofence hook
+    const userLocationObj = userLocation ? { lat: userLocation[0], lng: userLocation[1] } : null;
+
+    // Convert vehicles to geofence-compatible format
+    const vehiclesForGeofence = vehicles.map((vehicle) => ({
+        id: vehicle.id,
+        lat: vehicle.position[0],
+        lng: vehicle.position[1],
+    }));
+
+    // Activate geofence proximity alerts (1km radius)
+    useGeofenceAlert({
+        userLocation: userLocationObj,
+        vehicles: vehiclesForGeofence,
+        radiusKm: 1,
+        onVehicleEnter: (vehicleId) => {
+            console.log(`Vehicle ${vehicleId} entered proximity zone!`);
+            // Optional: Add custom UI notification or logging here
+        },
+        onVehicleExit: (vehicleId) => {
+            console.log(`Vehicle ${vehicleId} left proximity zone.`);
+        },
+    });
 
     useEffect(() => {
         if (!landmarksData || landmarksData.length === 0 || !selectedVehicle) return;
@@ -292,7 +317,7 @@ export function LiveMapUserView({ fleetData }: LiveMapUserViewProps) {
                     </div>
                 </div>
             )}
-            
+
             {/* Map Background - Edge to Edge */}
             <MapContainerAny
                 center={defaultCenter}
